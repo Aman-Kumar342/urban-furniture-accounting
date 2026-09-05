@@ -123,7 +123,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([role])
 }
@@ -139,6 +140,22 @@ model Session {
   ipAddress String?
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// One-time password reset tokens. Only the SHA-256 hash of the token is stored (never the raw
+// token). A token is single-use (usedAt) and time-limited (expiresAt); a successful reset also
+// clears the user's sessions. New requests supersede a user's earlier unused tokens.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
