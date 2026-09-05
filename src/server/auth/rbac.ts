@@ -1,4 +1,5 @@
-import type { Role, User } from "@prisma/client";
+import { Role } from "@prisma/client";
+import type { User } from "@prisma/client";
 import { readSessionToken } from "./cookies";
 import { getUserByToken } from "./session";
 
@@ -36,6 +37,11 @@ export async function requireRole(...roles: Role[]): Promise<User> {
     throw new AuthError("FORBIDDEN", 403, "You do not have access to this resource.");
   }
   return user;
+}
+
+/** Requires an internal staff user (Admin or Accountant). */
+export function requireStaff(): Promise<User> {
+  return requireRole(Role.ADMIN, Role.ACCOUNTANT);
 }
 
 export function toSafeUser(u: User): SafeUser {

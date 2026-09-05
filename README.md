@@ -44,6 +44,9 @@ UI → Route Handler → Service → Repository → Prisma → PostgreSQL.
 - `prisma/schema.prisma` — the data model (source of truth)
 - `db/constraints.sql` — CHECK constraints, audit FKs, ledger triggers (run after migrate)
 - `db/seed-plan.md` — pre-seeded CoA/Journals + balanced demo data + expected reports
+- `docs/auth.md` — auth + RBAC module (DB-backed sessions)
+- `docs/posting.md` — the `postEntry()` accounting service (single posting path)
+- `docs/sales-flow.md` — SO → Invoice → Payment, with the exact accounting entries
 
 ## Getting started
 

@@ -89,42 +89,59 @@ export function assertBalanced(lines: PostLine[]): {
  * Callers must NEVER create a POSTED JournalEntry directly — the DB also blocks a direct
  * POSTED insert, so this is the only way in.
  */
-export async function postEntry(input: PostEntryInput): Promise<PostedEntry> {
-  const { totalDebit } = assertBalanced(input.lines);
+async function postEntryCore(
+  tx: Prisma.TransactionClient,
+  input: PostEntryInput,
+  totalDebit: Prisma.Decimal,
+): Promise<PostedEntry> {
+  const number =
+    input.number ?? (await nextNumber(tx, input.numberKey ?? "JE", input.numberYear));
 
-  return prisma.$transaction(async (tx) => {
-    const number =
-      input.number ?? (await nextNumber(tx, input.numberKey ?? "JE", input.numberYear));
-
-    const draft = await tx.journalEntry.create({
-      data: {
-        number,
-        journalId: input.journalId,
-        date: input.date,
-        reference: input.reference ?? null,
-        sourceType: input.sourceType,
-        sourceId: input.sourceId ?? null,
-        partnerId: input.partnerId ?? null,
-        createdById: input.createdById ?? null,
-        state: "DRAFT",
-        amount: round2(0),
-        items: {
-          create: input.lines.map((l) => ({
-            accountId: l.accountId,
-            debit: round2(l.debit ?? 0),
-            credit: round2(l.credit ?? 0),
-            partnerId: l.partnerId ?? null,
-            analyticAccountId: l.analyticAccountId ?? null,
-            label: l.label ?? null,
-          })),
-        },
+  const draft = await tx.journalEntry.create({
+    data: {
+      number,
+      journalId: input.journalId,
+      date: input.date,
+      reference: input.reference ?? null,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId ?? null,
+      partnerId: input.partnerId ?? null,
+      createdById: input.createdById ?? null,
+      state: "DRAFT",
+      amount: round2(0),
+      items: {
+        create: input.lines.map((l) => ({
+          accountId: l.accountId,
+          debit: round2(l.debit ?? 0),
+          credit: round2(l.credit ?? 0),
+          partnerId: l.partnerId ?? null,
+          analyticAccountId: l.analyticAccountId ?? null,
+          label: l.label ?? null,
+        })),
       },
-    });
-
-    return tx.journalEntry.update({
-      where: { id: draft.id },
-      data: { state: "POSTED", amount: totalDebit },
-      include: { items: true },
-    });
+    },
   });
+
+  return tx.journalEntry.update({
+    where: { id: draft.id },
+    data: { state: "POSTED", amount: totalDebit },
+    include: { items: true },
+  });
+}
+
+/**
+ * The single sanctioned path to create a POSTED journal entry.
+ *
+ * Pass an existing `tx` (Prisma transaction client) to post INSIDE a caller's transaction
+ * (e.g. a payment that must be atomic with its allocation and invoice update). When `tx` is
+ * omitted, postEntry opens its own transaction. Either way it runs the same core, so the
+ * balanced invariant has one enforcement path.
+ */
+export async function postEntry(
+  input: PostEntryInput,
+  tx?: Prisma.TransactionClient,
+): Promise<PostedEntry> {
+  const { totalDebit } = assertBalanced(input.lines);
+  if (tx) return postEntryCore(tx, input, totalDebit);
+  return prisma.$transaction((t) => postEntryCore(t, input, totalDebit));
 }
