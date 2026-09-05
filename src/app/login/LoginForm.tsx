@@ -11,33 +11,35 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  // "Login ID" is the account email (the backend authenticates by email).
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
+  const [errors, setErrors] = useState<{ loginId?: string; password?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const next: typeof errors = {};
-    if (!email.trim()) next.email = "Enter your email.";
-    else if (!EMAIL_RE.test(email.trim())) next.email = "Enter a valid email address.";
+    if (!loginId.trim()) next.loginId = "Enter your Login ID.";
+    else if (!EMAIL_RE.test(loginId.trim())) next.loginId = "Enter a valid email address.";
     if (!password) next.password = "Enter your password.";
     setErrors(next);
-    if (next.email || next.password) return;
+    if (next.loginId || next.password) return;
 
     setLoading(true);
     try {
       await apiFetch("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: loginId.trim(), password }),
       });
       router.replace("/");
       router.refresh();
     } catch (err) {
-      const message =
-        err instanceof ApiRequestError
-          ? err.message
-          : "Can't reach the server. Check your connection and try again.";
+      let message = "Can't reach the server. Check your connection and try again.";
+      if (err instanceof ApiRequestError) {
+        message =
+          err.code === "INVALID_CREDENTIALS" ? "Invalid Login ID or password." : err.message;
+      }
       setErrors({ form: message });
       setLoading(false);
     }
@@ -54,18 +56,18 @@ export function LoginForm() {
         </div>
       )}
 
-      <FormField label="Email" htmlFor="email" error={errors.email}>
+      <FormField label="Login ID" htmlFor="loginId" error={errors.loginId}>
         <Input
-          id="email"
-          name="email"
+          id="loginId"
+          name="loginId"
           type="email"
-          autoComplete="email"
+          autoComplete="username"
           autoFocus
           placeholder="you@urbanfurniture.test"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          invalid={!!errors.email}
-          aria-describedby={errors.email ? "email-error" : undefined}
+          value={loginId}
+          onChange={(e) => setLoginId(e.target.value)}
+          invalid={!!errors.loginId}
+          aria-describedby={errors.loginId ? "loginId-error" : undefined}
         />
       </FormField>
 

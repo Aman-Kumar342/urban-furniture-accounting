@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/server/auth/rbac";
 import { Logo } from "@/components/brand/Logo";
@@ -5,46 +6,44 @@ import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
+// Structure per the Excalidraw Login page: App Logo → Login ID → Password → Sign in →
+// "Forgot Password · Sign Up". Rendered as a premium centered card on ruled drafting paper.
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect("/");
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand panel — the one bold element; everything else stays quiet. */}
-      <section
-        className="relative hidden flex-col justify-between overflow-hidden bg-pine p-10 text-paper lg:flex"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(to bottom, transparent, transparent 31px, rgba(245,244,240,0.05) 31px, rgba(245,244,240,0.05) 32px)",
-        }}
-      >
-        <Logo className="text-paper" />
-        <div className="max-w-md">
-          <h1 className="font-display text-4xl leading-[1.12] tracking-tight">
-            Double-entry accounting, built for the workshop floor.
-          </h1>
-          <p className="mt-4 text-sm leading-relaxed text-paper/70">
-            Record sales, purchases, and payments. Every entry balances, and the Balance Sheet
-            always ties out.
-          </p>
-        </div>
-        <p className="text-xs text-paper/50">Urban Furniture · Accounting System</p>
-      </section>
-
-      {/* Sign-in panel */}
-      <section className="flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 text-pine lg:hidden">
+    <main
+      className="flex min-h-screen items-center justify-center px-6 py-12"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(to bottom, transparent, transparent 31px, rgba(33,28,24,0.035) 31px, rgba(33,28,24,0.035) 32px)",
+      }}
+    >
+      <div className="w-full max-w-[400px]">
+        <div className="rounded-xl border border-line bg-surface px-8 py-9 shadow-[0_1px_2px_rgba(33,28,24,0.05),0_10px_28px_-14px_rgba(33,28,24,0.14)]">
+          <div className="flex justify-center text-pine">
             <Logo />
           </div>
-          <h2 className="font-display text-2xl text-ink">Sign in</h2>
-          <p className="mt-1 text-sm text-muted">Welcome back. Enter your details to continue.</p>
+          <h1 className="mt-7 text-center font-display text-xl text-ink">Sign in</h1>
+          <p className="mt-1 text-center text-sm text-muted">Welcome back to Urban Furniture.</p>
           <div className="mt-6">
             <LoginForm />
           </div>
         </div>
-      </section>
+
+        <p className="mt-5 text-center text-sm text-muted">
+          <Link href="/forgot-password" className="transition-colors hover:text-pine">
+            Forgot password?
+          </Link>
+          <span className="mx-2.5 text-line" aria-hidden="true">
+            ·
+          </span>
+          <Link href="/signup" className="font-medium text-pine transition-colors hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }
