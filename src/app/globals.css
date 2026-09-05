@@ -1,20 +1,37 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Urban Furniture — "Ledger + Workshop" design tokens */
+@theme {
+  --color-ink: #211d18; /* warm walnut-black — primary text */
+  --color-paper: #f5f4f0; /* cool drafting off-white — app ground */
+  --color-surface: #ffffff; /* tables / cards */
+  --color-pine: #1e4636; /* primary / navigation / brand */
+  --color-pine-700: #163527; /* pine hover */
+  --color-walnut: #9a6a43; /* single warm accent, used sparingly */
+  --color-line: #e4e1d9; /* hairline / ruled borders */
+  --color-muted: #6b655c; /* secondary text */
+  --color-income: #137a54; /* paid / income (distinct from pine) */
+  --color-amber: #b07a1e; /* partial / pending */
+  --color-oxblood: #a23a2c; /* failed / overdue / cancelled / errors */
+
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+
+  --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Arial, sans-serif;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* tabular figures for financial amounts */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
