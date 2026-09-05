@@ -28,9 +28,9 @@ export function AppShell({ user, children }: AppShellProps) {
   })).filter((s) => s.items.length > 0);
 
   return (
-    <div className="min-h-screen md:pl-60">
+    <div className="min-h-screen md:pl-60 print:pl-0">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-pine text-paper transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-pine text-paper transition-transform duration-200 md:translate-x-0 print:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -79,7 +79,7 @@ export function AppShell({ user, children }: AppShellProps) {
         />
       )}
 
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-line bg-surface px-4 md:px-8">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-line bg-surface px-4 md:px-8 print:hidden">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -102,7 +102,7 @@ export function AppShell({ user, children }: AppShellProps) {
         </div>
       </header>
 
-      <main className="p-4 md:p-8">{children}</main>
+      <main className="p-4 md:p-8 print:p-0">{children}</main>
     </div>
   );
 }

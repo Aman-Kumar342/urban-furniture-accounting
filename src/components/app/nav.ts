@@ -29,6 +29,14 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   { label: "Budget", items: [{ label: "Budgets", href: "/budgets" }] },
+  {
+    label: "Report",
+    items: [
+      { label: "Profit & Loss", href: "/reports/profit-loss" },
+      { label: "Balance Sheet", href: "/reports/balance-sheet" },
+      { label: "Budget Report", href: "/reports/budget" },
+    ],
+  },
   // The mockup's "Account" master-data group grows as each screen ships.
   {
     label: "Account",
