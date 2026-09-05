@@ -1,6 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type AnalyticType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { round2 } from "@/lib/money";
+import { round2, sum } from "@/lib/money";
 import { NotFound, Conflict, Unprocessable } from "@/lib/errors";
 import type { CreateBudgetInput, UpdateBudgetInput } from "@/server/validation/budget";
 
@@ -138,4 +138,103 @@ export async function cancelBudget(id: string) {
   if (b.state === "CANCELLED") throw Conflict("Budget is already cancelled.");
   if (b.state === "REVISED") throw Conflict("A superseded (revised) budget cannot be cancelled.");
   return prisma.budget.update({ where: { id }, data: { state: "CANCELLED" } });
+}
+
+// --- Budget Report & budget check (Decision C-4 / Option A) ---
+// "Achieved" = sum of CONFIRMED document lines tagged to the analytic within the budget
+// period: EXPENSE analytics accrue from vendor bills, INCOME analytics from customer
+// invoices. This reads the persisted document lines' analytic tags; it does NOT touch the
+// JournalItem/posting architecture.
+async function achievedForAnalytic(
+  db: Prisma.TransactionClient,
+  analyticAccountId: string,
+  type: AnalyticType,
+  start: Date,
+  end: Date,
+): Promise<Prisma.Decimal> {
+  if (type === "EXPENSE") {
+    const r = await db.vendorBillLine.aggregate({
+      _sum: { lineTotal: true },
+      where: { analyticAccountId, bill: { state: "CONFIRMED", billDate: { gte: start, lte: end } } },
+    });
+    return round2(r._sum.lineTotal ?? 0);
+  }
+  const r = await db.invoiceLine.aggregate({
+    _sum: { lineTotal: true },
+    where: { analyticAccountId, invoice: { state: "CONFIRMED", invoiceDate: { gte: start, lte: end } } },
+  });
+  return round2(r._sum.lineTotal ?? 0);
+}
+
+export async function getBudgetReport(id: string) {
+  const budget = await prisma.budget.findUnique({
+    where: { id },
+    include: { lines: { include: { analyticAccount: true } } },
+  });
+  if (!budget) throw NotFound("Budget not found.");
+
+  const lines = await Promise.all(
+    budget.lines.map(async (l) => {
+      const committed = round2(l.committedAmount);
+      const achieved = await achievedForAnalytic(prisma, l.analyticAccountId, l.type, budget.periodStart, budget.periodEnd);
+      const achievedPct = committed.greaterThan(0) ? round2(achieved.div(committed).times(100)) : round2(0);
+      return {
+        analyticAccountId: l.analyticAccountId,
+        analyticName: l.analyticAccount.name,
+        type: l.type,
+        committed,
+        achieved,
+        achievedPct,
+        amountToAchieve: round2(committed.minus(achieved)),
+      };
+    }),
+  );
+
+  return {
+    budgetId: budget.id,
+    name: budget.name,
+    state: budget.state,
+    periodStart: budget.periodStart,
+    periodEnd: budget.periodEnd,
+    lines,
+    totalCommitted: round2(sum(lines.map((l) => l.committed))),
+    totalAchieved: round2(sum(lines.map((l) => l.achieved))),
+  };
+}
+
+// Non-blocking budget check for PO/Bill confirmation. Returns warnings when a tagged line
+// amount exceeds the remaining approved budget (committed - achieved) for an analytic in a
+// CONFIRMED budget whose period covers the document date. NEVER blocks confirmation.
+export async function checkBudgetWarnings(
+  db: Prisma.TransactionClient,
+  lines: { analyticAccountId: string | null; lineTotal: Prisma.Decimal | number }[],
+  date: Date,
+): Promise<string[]> {
+  const warnings: string[] = [];
+  for (const l of lines) {
+    if (!l.analyticAccountId) continue;
+    const budgetLine = await db.budgetLine.findFirst({
+      where: {
+        analyticAccountId: l.analyticAccountId,
+        budget: { state: "CONFIRMED", periodStart: { lte: date }, periodEnd: { gte: date } },
+      },
+      include: { analyticAccount: true, budget: true },
+    });
+    if (!budgetLine) continue;
+    const achieved = await achievedForAnalytic(
+      db,
+      budgetLine.analyticAccountId,
+      budgetLine.type,
+      budgetLine.budget.periodStart,
+      budgetLine.budget.periodEnd,
+    );
+    const remaining = round2(budgetLine.committedAmount.minus(achieved));
+    const amount = round2(l.lineTotal);
+    if (amount.greaterThan(remaining)) {
+      warnings.push(
+        `Exceeds Approved Budget for "${budgetLine.analyticAccount.name}": remaining ${remaining}, this line adds ${amount}.`,
+      );
+    }
+  }
+  return warnings;
 }

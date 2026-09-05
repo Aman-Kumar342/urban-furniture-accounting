@@ -4,6 +4,7 @@ import { NotFound, Conflict } from "@/lib/errors";
 import { computeLineTotal } from "./sales.calc";
 import { nextNumber } from "./numbering.service";
 import type { CreatePurchaseOrderInput } from "@/server/validation/purchase";
+import { checkBudgetWarnings } from "./budget.service";
 
 export async function createPurchaseOrder(input: CreatePurchaseOrderInput, userId?: string) {
   const vendor = await prisma.contact.findUnique({ where: { id: input.vendorId } });
@@ -63,10 +64,17 @@ export async function getPurchaseOrder(id: string) {
 }
 
 export async function confirmPurchaseOrder(id: string) {
-  const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+  const po = await prisma.purchaseOrder.findUnique({ where: { id }, include: { lines: true } });
   if (!po) throw NotFound("Purchase order not found.");
   if (po.state !== "DRAFT") throw Conflict("Only a draft purchase order can be confirmed.");
-  return prisma.purchaseOrder.update({ where: { id }, data: { state: "CONFIRMED" } });
+  // Non-blocking budget check (advisory only) — confirmation still proceeds.
+  const warnings = await checkBudgetWarnings(
+    prisma,
+    po.lines.map((l) => ({ analyticAccountId: l.analyticAccountId, lineTotal: l.lineTotal })),
+    po.orderDate,
+  );
+  const purchaseOrder = await prisma.purchaseOrder.update({ where: { id }, data: { state: "CONFIRMED" } });
+  return { purchaseOrder, warnings };
 }
 
 export async function createBillFromPurchaseOrder(id: string, userId?: string) {

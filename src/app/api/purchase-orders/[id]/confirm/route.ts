@@ -8,7 +8,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   try {
     await requireStaff();
     const { id } = await params;
-    return ok({ purchaseOrder: await confirmPurchaseOrder(id) });
+    return ok(await confirmPurchaseOrder(id));
   } catch (e) {
     return errorToResponse(e);
   }

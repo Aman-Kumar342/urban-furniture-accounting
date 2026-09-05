@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { money, round2 } from "@/lib/money";
 import { NotFound, Conflict, Unprocessable } from "@/lib/errors";
 import { postEntry } from "./posting.service";
+import { checkBudgetWarnings } from "./budget.service";
 
 export function listBills(user: User) {
   // Contact-portal users (a vendor) see only their own bills (server-side ownership).
@@ -30,6 +31,13 @@ export async function confirmBill(id: string, userId?: string) {
     if (!bill) throw NotFound("Bill not found.");
     if (bill.state !== "DRAFT") throw Conflict("Only a draft bill can be confirmed.");
     if (bill.lines.length === 0) throw Unprocessable("EMPTY_BILL", "Bill has no lines.");
+
+    // Non-blocking budget check computed while the bill is still DRAFT (excluded from achieved).
+    const warnings = await checkBudgetWarnings(
+      tx,
+      bill.lines.map((l) => ({ analyticAccountId: l.analyticAccountId, lineTotal: l.lineTotal })),
+      bill.billDate,
+    );
 
     const creditors = await tx.account.findUniqueOrThrow({ where: { name: "Creditors A/c" } });
     const purchaseJournal = await tx.journal.findFirstOrThrow({ where: { type: "PURCHASE" } });
@@ -73,6 +81,6 @@ export async function confirmBill(id: string, userId?: string) {
       data: { state: "CONFIRMED", journalEntryId: entry.id },
       include: { lines: true },
     });
-    return { bill: updated, entry };
+    return { bill: updated, entry, warnings };
   });
 }
