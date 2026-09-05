@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     setupFiles: ["./vitest.setup.ts"],
+    // Integration tests share one dev database; run files sequentially so delta-based
+    // report assertions are not disturbed by another file writing concurrently.
+    fileParallelism: false,
   },
   resolve: {
     alias: { "@": path.resolve(process.cwd(), "src") },

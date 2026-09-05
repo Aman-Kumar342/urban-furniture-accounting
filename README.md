@@ -48,6 +48,7 @@ UI → Route Handler → Service → Repository → Prisma → PostgreSQL.
 - `docs/posting.md` — the `postEntry()` accounting service (single posting path)
 - `docs/sales-flow.md` — SO → Invoice → Payment, with the exact accounting entries
 - `docs/purchase-flow.md` — PO → Bill → Payment (mirror of Sales), with the exact entries
+- `docs/reports.md` — Balance Sheet & P&L derived read-only from the POSTED ledger
 
 ## Getting started
 
