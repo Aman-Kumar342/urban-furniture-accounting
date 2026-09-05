@@ -14,16 +14,22 @@ export interface NavSection {
 
 export const NAV_SECTIONS: NavSection[] = [
   { label: null, items: [{ label: "Dashboard", href: "/" }] },
-  // The mockup's "Account" master-data group (Contacts, Products, Chart of Accounts, Journals,
-  // Analytic Accounts, Journal Entries) is added here as each screen ships.
+  // The mockup's "Account" master-data group grows as each screen ships.
+  { label: "Account", items: [{ label: "Contacts", href: "/contacts" }] },
   { label: "Admin", items: [{ label: "Create user", href: "/admin/users/new", adminOnly: true }] },
 ];
 
+// Title for the topbar: exact match first, else the closest section item whose path is a prefix
+// (so /contacts/new and /contacts/:id still read "Contacts"). "/" only matches exactly.
 export function titleForPath(pathname: string): string {
+  let best: NavItem | null = null;
   for (const section of NAV_SECTIONS) {
     for (const item of section.items) {
       if (item.href === pathname) return item.label;
+      if (item.href !== "/" && pathname.startsWith(item.href + "/")) {
+        if (!best || item.href.length > best.href.length) best = item;
+      }
     }
   }
-  return "Urban Furniture";
+  return best?.label ?? "Urban Furniture";
 }
