@@ -10,6 +10,33 @@
 
 ---
 
+## 0. Mockup Reconciliation & Overrides (authoritative)
+
+The **official mockup has been inspected** (`docs/mockup/mockup-full-light.png`; full
+screen-by-screen reading in `docs/mockup-reconciliation.md`). It **confirms** the core
+model and pins down specifics used below: nav is **Sales · Purchase · Account · Report**;
+CoA and Journals are **pre-seeded**; transaction **lines** carry Product + (for
+Bill/Invoice) a defaulted Chart-of-Account + Budget Analytics + Qty + Unit Price + Total;
+confirming a Bill/Invoice **auto-posts a balanced journal entry**; documents track
+**Paid via Cash / Paid via Bank / Amount Due** with status **Not Paid → Partial → Paid**.
+
+Two **conflicts** between this written PS and the mockup are resolved as follows (these
+**override** any conflicting statement later in this document):
+
+- **C-1 TAX — mockup wins: NO TAX in P0.** The mockup shows no tax fields, no tax account,
+  and tax-free journal entries. We build a clean 2-legged posting engine
+  (Invoice: `Dr Debtors / Cr Sales Income`; Bill: `Dr Purchase Expense / Cr Creditors`).
+  **Any "tax" mention below (postings, rules, entity table, acceptance criteria, P1 scope)
+  is deferred to `[OPTIONAL] P3`.**
+- **C-2 CONTACT TYPE — keep the field.** PS requires `Type (Customer/Vendor/Both)`; the
+  mockup omits it. We keep a `type` column (default `BOTH`) for filtering; the form may
+  hide/default it.
+
+See `docs/mockup-reconciliation.md` §9 for C-3 (stock reports: out of scope) and C-4
+(budget Achieved source). **If you want tax in P0 instead, say so and we revise C-1.**
+
+---
+
 ## 1. Problem Overview
 
 Urban Furniture needs an accounting system that lets the business record its real
@@ -71,7 +98,7 @@ reports. These are automatic behaviors, not screens.
 ### 4.1 Master Data
 | Module | `[OFFICIAL REQUIREMENT]` fields | Notes |
 |---|---|---|
-| **Contact Master** | Name, Type (Customer/Vendor/Both), Email, Mobile, Address (City, State, Pincode), Profile Image | A Contact may be linked to a portal user. |
+| **Contact Master** | Name, Email (unique), Phone, Address (**Street, City, State, Country, Pincode**), Profile Image | Mockup fields. `type` (Customer/Vendor/Both) kept per C-2. May link to a portal user. |
 | **Product Master** | Product Name, Type (Goods/Service/Combo), Sales Price, Cost (Purchase Price), Category | Category normalized to its own table `[RECOMMENDED ENHANCEMENT]`. |
 | **Chart of Accounts** | Account Name, Type (Asset, Liability, Expense, Income, Capital) | Supports hierarchy via `parent_id` `[RECOMMENDED ENHANCEMENT]`; add `code` for ordering `[ENGINEERING DECISION]`. |
 | **Journals** | Journal Name, Type, Default Accounts | Types: Sales, Purchase, Bank, Cash `[OFFICIAL REQUIREMENT]`. |
@@ -128,34 +155,34 @@ reports. These are automatic behaviors, not screens.
 
 > These postings are the heart of the system. `[OFFICIAL REQUIREMENT]` examples from
 > the PS: "Cash received from customer → Debit Cash, Credit Debtor"; "Purchase on
-> credit → Debit Purchase Expense, Credit Creditor". The tax legs below are our
-> `[ENGINEERING DECISION]` to satisfy "System computes taxes".
+> credit → Debit Purchase Expense, Credit Creditor". **Per C-1 (§0) the P0 postings carry
+> NO tax leg** — they match the mockup's tax-free, cleanly balanced entries.
 
 ### 6.1 Sales
 ```
 Sales Order (commercial, no accounting)
-  → Customer Invoice (POST creates a journal entry in the Sales Journal):
-        Dr  Accounts Receivable (Debtors)      total incl. tax
-            Cr  Sales Income                        net amount
-            Cr  Output Tax Payable (liability)      tax amount
-  → Payment received (journal entry in Bank/Cash Journal):
+  → Customer Invoice (CONFIRM auto-creates a balanced entry in the Sales Journal):
+        Dr  Debtors (Accounts Receivable)      total     (Partner = customer)
+            Cr  Sales Income                        total
+  → Payment received (Receive; entry in Bank/Cash Journal):
         Dr  Cash / Bank                         amount paid
-            Cr  Accounts Receivable (Debtors)       amount paid
+            Cr  Debtors (Accounts Receivable)       amount paid
   → Ledger updated → Reports reflect the change
+  [OPTIONAL P3] if tax is added: split the credit into Sales Income (net) + Output Tax.
 ```
 Invoice status: `DRAFT → POSTED → PARTIALLY_PAID → PAID` (derived from allocations).
 
 ### 6.2 Purchase
 ```
 Purchase Order (commercial, no accounting)
-  → Vendor Bill (POST creates a journal entry in the Purchase Journal):
-        Dr  Purchase Expense                    net amount
-        Dr  Input Tax Receivable (asset)        tax amount   [if tax applies]
-            Cr  Accounts Payable (Creditors)        total incl. tax
-  → Payment made (journal entry in Bank/Cash Journal):
-        Dr  Accounts Payable (Creditors)        amount paid
+  → Vendor Bill (CONFIRM auto-creates a balanced entry in the Purchase Journal):
+        Dr  Purchase Expense                    total     (Partner = vendor)
+            Cr  Creditors (Accounts Payable)        total
+  → Payment made (Send; entry in Bank/Cash Journal):
+        Dr  Creditors (Accounts Payable)        amount paid
             Cr  Cash / Bank                         amount paid
   → Ledger updated → Reports reflect the change
+  [OPTIONAL P3] if tax is added: add a Dr Input Tax leg and gross up Creditors.
 ```
 Bill status mirrors the invoice status lifecycle.
 
@@ -188,7 +215,7 @@ Posted Journal Items → per-account balances (ledger) → Financial Reports
 | `product_categories` | classify products | 1–N products | unique name |
 | `products` | goods/services sold & bought | N–1 category | prices ≥ 0; type enum |
 | `accounts` (CoA) | classify postings | self-ref hierarchy | type enum; unique code |
-| `taxes` | compute tax | N–1 account | rate 0–100; scope enum |
+| `taxes` *(P3, deferred)* | compute tax | N–1 account | rate 0–100; scope enum |
 | `journals` | group entries | default accounts | type enum |
 | `journal_entries` | one accounting record | N–1 journal; N items | date; state; balanced |
 | `journal_items` | debit/credit lines | N–1 entry, N–1 account | exactly one of debit/credit > 0 |
@@ -217,8 +244,8 @@ Posted Journal Items → per-account balances (ledger) → Financial Reports
    referenced by a transaction (preserve historical integrity).
 7. `[ENGINEERING DECISION]` Posted journal entries are **immutable**; corrections are
    made by cancelling/reversing, not silent edits.
-8. `[ENGINEERING DECISION]` Tax = simple percentage of line net; sales tax posts to a
-   liability (Output Tax), purchase tax to an asset (Input Tax).
+8. `[OPTIONAL P3]` Tax is **not** in P0 (see C-1). If added later: simple percentage of
+   line net; sales tax → Output Tax (liability), purchase tax → Input Tax (asset).
 9. `[ENGINEERING DECISION]` Money is stored as `NUMERIC(14,2)`; never floating point.
 10. `[OFFICIAL REQUIREMENT]` Reports are computed from persisted journal items, never
     hardcoded.
@@ -267,7 +294,6 @@ Posted Journal Items → per-account balances (ledger) → Financial Reports
 ### P1 — Strong Scoring Features
 - Analytic accounts + Budget + Budget Report.
 - Payment allocation with partial payments and derived document status.
-- Tax computation and tax accounts.
 - Dashboard with live KPIs (AR, AP, cash, revenue) from real data.
 - Contact portal (self-service invoice view + pay).
 
@@ -289,14 +315,14 @@ Posted Journal Items → per-account balances (ledger) → Financial Reports
 
 ## 12. Acceptance Criteria (testable)
 
-- **AC-1 (Sales):** When a valid sale is invoiced, the system creates a **balanced**
-  journal entry (Dr AR; Cr Income; Cr Tax), and AR + Income balances increase by the
-  correct amounts.
+- **AC-1 (Sales):** When a valid sale is invoiced (confirmed), the system creates a
+  **balanced** journal entry (Dr Debtors; Cr Sales Income) and both balances increase by
+  the invoice total.
 - **AC-2 (Payment in):** When a payment is registered against a posted invoice, Cash/Bank
   increases, AR decreases by the same amount, and the invoice status becomes
   `PARTIALLY_PAID` or `PAID` correctly.
-- **AC-3 (Purchase):** When a Vendor Bill is posted, the system creates a balanced entry
-  (Dr Expense; Dr Input Tax; Cr AP), increasing Expense and AP correctly.
+- **AC-3 (Purchase):** When a Vendor Bill is confirmed, the system creates a balanced entry
+  (Dr Purchase Expense; Cr Creditors), increasing Expense and AP correctly.
 - **AC-4 (Payment out):** Paying a bill decreases AP and decreases Cash/Bank by the same
   amount; bill status updates.
 - **AC-5 (Balance Sheet):** After any set of postings, `Assets = Liabilities + Capital`

@@ -22,8 +22,23 @@ correct accounting logic: every transaction posts balanced journal entries, and 
 
 ## Tech
 
-- **Database:** PostgreSQL (local) — per hackathon rules, no BaaS
-- **Backend / Frontend:** being finalized
+Single Next.js app (one VPS, one domain), cleanly layered
+UI → Route Handler → Service → Repository → Prisma → PostgreSQL.
+
+- **Frontend/Backend:** Next.js (App Router) + React + TypeScript, Route Handlers for the API
+- **Styling:** Tailwind CSS
+- **Database:** PostgreSQL (local/self-hosted) — no BaaS, per hackathon rules
+- **ORM:** Prisma · **Validation:** Zod · **Auth:** session + RBAC
+- **Deploy:** Nginx → Next.js (PM2) → local PostgreSQL
+
+## Docs
+
+- `problemstatement.md` — single source of truth (what to build)
+- `expectation.md` — scoring strategy vs the judging rubric
+- `skill.md` — team capability checklist
+- `guidelines.md` — development rulebook
+- `docs/mockup-reconciliation.md` — screen-by-screen reading of the official mockup
+- `docs/mockup/` — the official mockup image
 
 ## Getting started
 
