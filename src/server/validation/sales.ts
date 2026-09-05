@@ -35,13 +35,22 @@ export const createSalesOrderSchema = z.object({
   lines: z.array(salesOrderLineSchema).min(1),
 });
 
-export const createPaymentSchema = z.object({
-  invoiceId: z.string().uuid(),
-  method: z.enum(["CASH", "BANK"]),
-  amount: z.number().positive(), // > 0
-  paymentDate: z.coerce.date().optional(),
-  note: z.string().trim().max(500).optional(),
-});
+// A payment settles exactly one document: a customer invoice (RECEIVE) or a vendor bill
+// (SEND). The XOR is enforced here, in the service, and by the DB (alloc_target_xor).
+// Direction is NEVER taken from the client — the service derives it from the document.
+export const createPaymentSchema = z
+  .object({
+    invoiceId: z.string().uuid().optional(),
+    billId: z.string().uuid().optional(),
+    method: z.enum(["CASH", "BANK"]),
+    amount: z.number().positive(), // > 0
+    paymentDate: z.coerce.date().optional(),
+    note: z.string().trim().max(500).optional(),
+  })
+  .refine((d) => Boolean(d.invoiceId) !== Boolean(d.billId), {
+    message: "Provide exactly one of invoiceId or billId.",
+    path: ["invoiceId"],
+  });
 
 export type CreateContactInput = z.infer<typeof createContactSchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;

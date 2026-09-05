@@ -42,4 +42,12 @@ describe("sales validation schemas", () => {
       createPaymentSchema.safeParse({ invoiceId: crypto.randomUUID(), method: "BANK", amount: 0 }).success,
     ).toBe(false);
   });
+
+  it("payment requires exactly one of invoiceId / billId", () => {
+    const id = crypto.randomUUID();
+    expect(createPaymentSchema.safeParse({ invoiceId: id, method: "BANK", amount: 10 }).success).toBe(true);
+    expect(createPaymentSchema.safeParse({ billId: id, method: "BANK", amount: 10 }).success).toBe(true);
+    expect(createPaymentSchema.safeParse({ invoiceId: id, billId: id, method: "BANK", amount: 10 }).success).toBe(false);
+    expect(createPaymentSchema.safeParse({ method: "BANK", amount: 10 }).success).toBe(false);
+  });
 });

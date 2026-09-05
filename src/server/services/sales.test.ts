@@ -14,7 +14,7 @@ import {
   confirmInvoice,
   getInvoiceForUser,
 } from "@/server/services/invoice.service";
-import { receivePayment } from "@/server/services/payment.service";
+import { registerPayment } from "@/server/services/payment.service";
 
 // Full Sales-flow integration test against the local dev DB (uses seeded accounts/journals).
 let customerId: string;
@@ -65,30 +65,31 @@ describe("Sales flow", () => {
 
   it("full payment posts Dr Bank / Cr Debtors and marks the invoice PAID", async () => {
     const { invoice } = await makeConfirmedInvoice(10, 2500); // 25000
-    const { entry, invoice: paid } = await receivePayment({ invoiceId: invoice.id, method: "BANK", amount: 25000 });
+    const { payment, entry, invoice: paid } = await registerPayment({ invoiceId: invoice.id, method: "BANK", amount: 25000 });
+    expect(payment.direction).toBe("RECEIVE"); // derived from the invoice, not the client
     const debit = entry.items.find((i) => i.accountId === bankId);
     const credit = entry.items.find((i) => i.accountId === debtorsId);
     expect(debit?.debit.equals(25000)).toBe(true);
     expect(credit?.credit.equals(25000)).toBe(true);
-    expect(paid.paymentStatus).toBe("PAID");
-    expect(paid.amountDue.equals(0)).toBe(true);
+    expect(paid!.paymentStatus).toBe("PAID");
+    expect(paid!.amountDue.equals(0)).toBe(true);
   });
 
   it("partial payment marks PARTIAL then PAID", async () => {
     const { invoice } = await makeConfirmedInvoice(4, 1000); // 4000
-    const p1 = await receivePayment({ invoiceId: invoice.id, method: "CASH", amount: 1500 });
-    expect(p1.invoice.paymentStatus).toBe("PARTIAL");
-    expect(p1.invoice.amountDue.equals(2500)).toBe(true);
-    const p2 = await receivePayment({ invoiceId: invoice.id, method: "BANK", amount: 2500 });
-    expect(p2.invoice.paymentStatus).toBe("PAID");
-    expect(p2.invoice.amountDue.equals(0)).toBe(true);
+    const p1 = await registerPayment({ invoiceId: invoice.id, method: "CASH", amount: 1500 });
+    expect(p1.invoice!.paymentStatus).toBe("PARTIAL");
+    expect(p1.invoice!.amountDue.equals(2500)).toBe(true);
+    const p2 = await registerPayment({ invoiceId: invoice.id, method: "BANK", amount: 2500 });
+    expect(p2.invoice!.paymentStatus).toBe("PAID");
+    expect(p2.invoice!.amountDue.equals(0)).toBe(true);
   });
 
   it("rejects overpayment and writes nothing (rollback)", async () => {
     const { invoice } = await makeConfirmedInvoice(1, 1000); // 1000
     const before = await prisma.paymentAllocation.count({ where: { invoiceId: invoice.id } });
     await expect(
-      receivePayment({ invoiceId: invoice.id, method: "BANK", amount: 1500 }),
+      registerPayment({ invoiceId: invoice.id, method: "BANK", amount: 1500 }),
     ).rejects.toBeInstanceOf(AppError);
     const after = await prisma.paymentAllocation.count({ where: { invoiceId: invoice.id } });
     expect(after).toBe(before); // no partial write
@@ -99,7 +100,7 @@ describe("Sales flow", () => {
     await confirmSalesOrder(so.id);
     const draft = await createInvoiceFromSalesOrder(so.id); // not confirmed
     await expect(
-      receivePayment({ invoiceId: draft.id, method: "BANK", amount: 1000 }),
+      registerPayment({ invoiceId: draft.id, method: "BANK", amount: 1000 }),
     ).rejects.toBeInstanceOf(AppError);
   });
 

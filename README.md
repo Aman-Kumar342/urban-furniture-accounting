@@ -47,6 +47,7 @@ UI → Route Handler → Service → Repository → Prisma → PostgreSQL.
 - `docs/auth.md` — auth + RBAC module (DB-backed sessions)
 - `docs/posting.md` — the `postEntry()` accounting service (single posting path)
 - `docs/sales-flow.md` — SO → Invoice → Payment, with the exact accounting entries
+- `docs/purchase-flow.md` — PO → Bill → Payment (mirror of Sales), with the exact entries
 
 ## Getting started
 
