@@ -155,7 +155,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
   return (
     <div>
       <dt className="text-xs font-medium text-muted">{label}</dt>
-      <dd className={`tnum mt-0.5 font-display text-lg ${tone === "income" ? "text-income" : "text-ink"}`}>{value}</dd>
+      <dd className={`tnum mt-0.5 text-lg font-semibold ${tone === "income" ? "text-income" : "text-ink"}`}>{value}</dd>
     </div>
   );
 }

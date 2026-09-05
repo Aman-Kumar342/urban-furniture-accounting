@@ -1,6 +1,5 @@
-// Admin navigation. Only screens that actually exist appear here; this grows one entry at a
-// time as each admin screen is built, so nothing is reachable only by typing a URL and nothing
-// links to a page that doesn't exist yet.
+// Admin navigation. Ordered to match the mockup's information architecture
+// (Sales · Purchase · Account · Budget · Reports), with an admin-only section last.
 export interface NavItem {
   label: string;
   href: string;
@@ -28,16 +27,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Bills", href: "/bills" },
     ],
   },
-  { label: "Budget", items: [{ label: "Budgets", href: "/budgets" }] },
-  {
-    label: "Report",
-    items: [
-      { label: "Profit & Loss", href: "/reports/profit-loss" },
-      { label: "Balance Sheet", href: "/reports/balance-sheet" },
-      { label: "Budget Report", href: "/reports/budget" },
-    ],
-  },
-  // The mockup's "Account" master-data group grows as each screen ships.
   {
     label: "Account",
     items: [
@@ -48,6 +37,15 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Analytic Accounts", href: "/analytic-accounts" },
       { label: "Journal Entries", href: "/journal-entries" },
       { label: "Payments", href: "/payments" },
+    ],
+  },
+  { label: "Budget", items: [{ label: "Budgets", href: "/budgets" }] },
+  {
+    label: "Reports",
+    items: [
+      { label: "Profit & Loss", href: "/reports/profit-loss" },
+      { label: "Balance Sheet", href: "/reports/balance-sheet" },
+      { label: "Budget Report", href: "/reports/budget" },
     ],
   },
   { label: "Admin", items: [{ label: "Create user", href: "/admin/users/new", adminOnly: true }] },

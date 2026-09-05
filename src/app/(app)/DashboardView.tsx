@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 
@@ -31,11 +32,7 @@ export function DashboardView() {
       setData(await apiFetch<DashboardData>("/api/dashboard"));
     } catch (e) {
       if (e instanceof ApiRequestError) {
-        setError(
-          e.code === "FORBIDDEN"
-            ? "You don't have access to the dashboard."
-            : e.message,
-        );
+        setError(e.code === "FORBIDDEN" ? "You don't have access to the dashboard." : e.message);
       } else {
         setError("Couldn't load the dashboard. Check your connection and try again.");
       }
@@ -74,6 +71,9 @@ export function DashboardView() {
       <div className="grid gap-5 sm:grid-cols-2">
         <MetricCard
           title="Sales orders"
+          viewHref="/sales-orders"
+          newHref="/sales-orders/new"
+          newLabel="New sales order"
           tiles={[
             { label: "All", value: data.sales.all },
             { label: "Confirmed", value: data.sales.confirmed, tone: "income" },
@@ -82,6 +82,9 @@ export function DashboardView() {
         />
         <MetricCard
           title="Purchase orders"
+          viewHref="/purchase-orders"
+          newHref="/purchase-orders/new"
+          newLabel="New purchase order"
           tiles={[
             { label: "All", value: data.purchase.all },
             { label: "Confirmed", value: data.purchase.confirmed, tone: "income" },
@@ -95,7 +98,19 @@ export function DashboardView() {
   );
 }
 
-function MetricCard({ title, tiles }: { title: string; tiles: Tile[] }) {
+function MetricCard({
+  title,
+  tiles,
+  viewHref,
+  newHref,
+  newLabel,
+}: {
+  title: string;
+  tiles: Tile[];
+  viewHref: string;
+  newHref: string;
+  newLabel: string;
+}) {
   return (
     <section className="rounded-lg border border-line bg-surface shadow-[0_1px_2px_rgba(33,28,24,0.04)]">
       <header className="border-b border-line px-5 py-3">
@@ -104,17 +119,25 @@ function MetricCard({ title, tiles }: { title: string; tiles: Tile[] }) {
       <div className="grid grid-cols-3 divide-x divide-line">
         {tiles.map((t) => (
           <div key={t.label} className="px-5 py-5 text-center">
-            <p className={`tnum font-display text-3xl leading-none ${TONE[t.tone ?? "ink"]}`}>{t.value}</p>
+            <p className={`tnum text-3xl font-semibold leading-none ${TONE[t.tone ?? "ink"]}`}>{t.value}</p>
             <p className="mt-2 text-xs text-muted">{t.label}</p>
           </div>
         ))}
+      </div>
+      <div className="flex items-center justify-between border-t border-line px-5 py-2.5 text-sm">
+        <Link href={viewHref} aria-label={`View all ${title.toLowerCase()}`} className="font-medium text-pine transition-colors hover:underline">
+          View all
+        </Link>
+        <Link href={newHref} className="text-muted transition-colors hover:text-pine">
+          {newLabel}
+        </Link>
       </div>
     </section>
   );
 }
 
-// The dashboard's budget figures are not implemented server-side (GET /api/dashboard returns
-// budget: null). We show that honestly rather than fabricate Achieved / Budget / Committed.
+// The dashboard's budget figures aren't summarised server-side (GET /api/dashboard returns
+// budget: null). Rather than fabricate numbers, point to the real Budget Report.
 function BudgetPanel({ budget }: { budget: DashboardData["budget"] }) {
   if (budget) {
     return (
@@ -124,15 +147,15 @@ function BudgetPanel({ budget }: { budget: DashboardData["budget"] }) {
         </header>
         <div className="grid grid-cols-3 divide-x divide-line">
           <div className="px-5 py-5 text-center">
-            <p className="tnum font-display text-3xl leading-none text-income">{budget.achieved}</p>
+            <p className="tnum text-3xl font-semibold leading-none text-income">{budget.achieved}</p>
             <p className="mt-2 text-xs text-muted">Achieved</p>
           </div>
           <div className="px-5 py-5 text-center">
-            <p className="tnum font-display text-3xl leading-none text-ink">{budget.budget}</p>
+            <p className="tnum text-3xl font-semibold leading-none text-ink">{budget.budget}</p>
             <p className="mt-2 text-xs text-muted">Budget</p>
           </div>
           <div className="px-5 py-5 text-center">
-            <p className="tnum font-display text-3xl leading-none text-amber">{budget.committed}</p>
+            <p className="tnum text-3xl font-semibold leading-none text-amber">{budget.committed}</p>
             <p className="mt-2 text-xs text-muted">Committed</p>
           </div>
         </div>
@@ -141,12 +164,14 @@ function BudgetPanel({ budget }: { budget: DashboardData["budget"] }) {
   }
 
   return (
-    <section className="rounded-lg border border-dashed border-line bg-surface px-5 py-6">
-      <h2 className="text-sm font-medium text-ink">Budget</h2>
-      <p className="mt-1 text-sm text-muted">
-        Budget figures aren&rsquo;t summarised on the dashboard yet. They&rsquo;ll appear here once the
-        Budget module is wired in.
-      </p>
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4">
+      <div>
+        <h2 className="text-sm font-medium text-ink">Budget</h2>
+        <p className="mt-0.5 text-sm text-muted">See committed vs achieved across all budgets.</p>
+      </div>
+      <Link href="/reports/budget" className="text-sm font-medium text-pine transition-colors hover:underline">
+        View Budget Report
+      </Link>
     </section>
   );
 }
@@ -171,10 +196,13 @@ function DashboardSkeleton() {
                 </div>
               ))}
             </div>
+            <div className="border-t border-line px-5 py-3">
+              <div className="h-3 w-24 rounded bg-line/40" />
+            </div>
           </div>
         ))}
       </div>
-      <div className="h-20 rounded-lg border border-dashed border-line bg-surface" />
+      <div className="h-16 rounded-lg border border-line bg-surface" />
     </div>
   );
 }

@@ -83,8 +83,8 @@ export function ProfitLossReport() {
             </StatementSection>
 
             <div className="flex items-center justify-between gap-6 border-t-2 border-ink/40 pt-4">
-              <span className="font-display text-lg text-ink">Net income</span>
-              <span className={`tnum font-display text-lg ${netNegative ? "text-oxblood" : "text-income"}`}>
+              <span className="text-lg font-semibold text-ink">Net income</span>
+              <span className={`tnum text-lg font-semibold ${netNegative ? "text-oxblood" : "text-income"}`}>
                 {formatMoney(data.netIncome)}
               </span>
             </div>
