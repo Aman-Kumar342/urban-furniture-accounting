@@ -39,6 +39,11 @@ UI → Route Handler → Service → Repository → Prisma → PostgreSQL.
 - `guidelines.md` — development rulebook
 - `docs/mockup-reconciliation.md` — screen-by-screen reading of the official mockup
 - `docs/mockup/` — the official mockup image
+- `docs/ERD.md` — entity-relationship diagram, entity catalog, requirement→entity map
+- `docs/database-design.md` — invariants, transaction boundaries, index strategy, reviewer defense
+- `prisma/schema.prisma` — the data model (source of truth)
+- `db/constraints.sql` — CHECK constraints, audit FKs, ledger triggers (run after migrate)
+- `db/seed-plan.md` — pre-seeded CoA/Journals + balanced demo data + expected reports
 
 ## Getting started
 
