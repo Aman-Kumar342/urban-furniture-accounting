@@ -2,22 +2,33 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatMoney } from "@/lib/format";
 import { formatEntryDate } from "@/lib/journalEntries";
 import { ORDER_STATE_LABEL, ORDER_STATE_TONE, type SalesOrderDetail as SO } from "@/lib/salesOrders";
+import type { AnalyticAccount } from "@/lib/analyticAccounts";
 
 export function SalesOrderDetail({ id }: { id: string }) {
+  const router = useRouter();
   const [order, setOrder] = useState<SO | null>(null);
+  const [analyticById, setAnalyticById] = useState<Map<string, string>>(new Map());
   const [status, setStatus] = useState<"loading" | "error" | "notfound" | "ready">("loading");
+  const [pending, setPending] = useState<"confirm" | "invoice" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const res = await apiFetch<{ salesOrder: SO }>(`/api/sales-orders/${id}`);
-      setOrder(res.salesOrder);
+      const [soRes, anRes] = await Promise.all([
+        apiFetch<{ salesOrder: SO }>(`/api/sales-orders/${id}`),
+        apiFetch<{ analyticAccounts: AnalyticAccount[] }>("/api/analytic-accounts").catch(() => ({ analyticAccounts: [] })),
+      ]);
+      setOrder(soRes.salesOrder);
+      setAnalyticById(new Map(anRes.analyticAccounts.map((a) => [a.id, a.name])));
       setStatus("ready");
     } catch (e) {
       setStatus(e instanceof ApiRequestError && e.code === "NOT_FOUND" ? "notfound" : "error");
@@ -27,6 +38,35 @@ export function SalesOrderDetail({ id }: { id: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function confirmOrder() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await apiFetch(`/api/sales-orders/${id}/confirm`, { method: "POST", body: "{}" });
+      setPending(null);
+      await load();
+    } catch (e) {
+      setActionError(e instanceof ApiRequestError ? e.message : "Couldn't confirm the order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createInvoice() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ invoice: { id: string } }>(`/api/sales-orders/${id}/invoice`, {
+        method: "POST",
+        body: "{}",
+      });
+      router.push(`/invoices/${res.invoice.id}`);
+    } catch (e) {
+      setBusy(false);
+      setActionError(e instanceof ApiRequestError ? e.message : "Couldn't create the invoice.");
+    }
+  }
 
   if (status === "loading") return <DetailSkeleton />;
   if (status === "notfound") {
@@ -57,7 +97,21 @@ export function SalesOrderDetail({ id }: { id: string }) {
           <h2 className="tnum font-display text-xl text-ink">{order.number}</h2>
           <Badge tone={ORDER_STATE_TONE[order.state]}>{ORDER_STATE_LABEL[order.state]}</Badge>
         </div>
+        <Actions
+          order={order}
+          pending={pending}
+          setPending={setPending}
+          busy={busy}
+          onConfirm={confirmOrder}
+          onInvoice={createInvoice}
+        />
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-md border-l-2 border-oxblood bg-oxblood/5 px-3 py-2 text-sm text-oxblood">
+          {actionError}
+        </div>
+      )}
 
       <dl className="grid gap-4 rounded-lg border border-line bg-surface p-6 sm:grid-cols-3">
         <Field label="Customer" value={order.customer?.name ?? "—"} />
@@ -67,10 +121,11 @@ export function SalesOrderDetail({ id }: { id: string }) {
 
       <div className="overflow-hidden rounded-lg border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs font-medium text-muted">
                 <th className="px-4 py-3 font-medium">Product</th>
+                <th className="px-4 py-3 font-medium">Budget analytics</th>
                 <th className="px-4 py-3 text-right font-medium">Qty</th>
                 <th className="px-4 py-3 text-right font-medium">Unit price</th>
                 <th className="px-4 py-3 text-right font-medium">Line total</th>
@@ -80,6 +135,9 @@ export function SalesOrderDetail({ id }: { id: string }) {
               {order.lines.map((l) => (
                 <tr key={l.id} className="border-b border-line last:border-0">
                   <td className="px-4 py-3 text-ink">{l.product?.name || <span className="text-line">—</span>}</td>
+                  <td className="px-4 py-3 text-muted">
+                    {l.analyticAccountId ? analyticById.get(l.analyticAccountId) ?? "—" : <span className="text-line">—</span>}
+                  </td>
                   <td className="tnum px-4 py-3 text-right text-muted">{Number(l.quantity)}</td>
                   <td className="tnum px-4 py-3 text-right text-muted">{formatMoney(l.unitPrice)}</td>
                   <td className="tnum px-4 py-3 text-right text-ink">{formatMoney(l.lineTotal)}</td>
@@ -88,7 +146,7 @@ export function SalesOrderDetail({ id }: { id: string }) {
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-line bg-paper/40 font-medium">
-                <td className="px-4 py-3 text-muted" colSpan={3}>
+                <td className="px-4 py-3 text-muted" colSpan={4}>
                   Total
                 </td>
                 <td className="tnum px-4 py-3 text-right text-ink">{formatMoney(order.amountTotal)}</td>
@@ -100,9 +158,60 @@ export function SalesOrderDetail({ id }: { id: string }) {
 
       {order.invoice && (
         <p className="text-sm text-muted">
-          Invoiced as <span className="tnum text-ink">{order.invoice.number}</span> ({order.invoice.state.toLowerCase()}).
+          Invoiced as{" "}
+          <Link href={`/invoices/${order.invoice.id}`} className="tnum font-medium text-pine hover:underline">
+            {order.invoice.number}
+          </Link>{" "}
+          ({order.invoice.state.toLowerCase()}).
         </p>
       )}
+    </div>
+  );
+}
+
+function Actions({
+  order,
+  pending,
+  setPending,
+  busy,
+  onConfirm,
+  onInvoice,
+}: {
+  order: SO;
+  pending: "confirm" | "invoice" | null;
+  setPending: (p: "confirm" | "invoice" | null) => void;
+  busy: boolean;
+  onConfirm: () => void;
+  onInvoice: () => void;
+}) {
+  // Contextual: a draft order can be confirmed; a confirmed order (not yet invoiced) can generate one.
+  if (order.state === "DRAFT") {
+    return pending === "confirm" ? (
+      <ConfirmBar label="Confirm this order?" onYes={onConfirm} onNo={() => setPending(null)} busy={busy} yes="Confirm order" />
+    ) : (
+      <Button onClick={() => setPending("confirm")}>Confirm order</Button>
+    );
+  }
+  if (order.state === "CONFIRMED" && !order.invoice) {
+    return pending === "invoice" ? (
+      <ConfirmBar label="Create a customer invoice from this order?" onYes={onInvoice} onNo={() => setPending(null)} busy={busy} yes="Create invoice" />
+    ) : (
+      <Button onClick={() => setPending("invoice")}>Create invoice</Button>
+    );
+  }
+  return null;
+}
+
+function ConfirmBar({ label, onYes, onNo, busy, yes }: { label: string; onYes: () => void; onNo: () => void; busy: boolean; yes: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-muted">{label}</span>
+      <Button onClick={onYes} loading={busy}>
+        {yes}
+      </Button>
+      <Button variant="ghost" onClick={onNo} disabled={busy}>
+        Cancel
+      </Button>
     </div>
   );
 }
