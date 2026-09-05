@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { User } from "@prisma/client";
+import { Prisma, type User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // DB-backed sessions. A random opaque token goes to the client; only its SHA-256 hash is
@@ -15,11 +15,17 @@ export interface SessionMeta {
   ipAddress?: string | null;
 }
 
-export async function createSession(userId: string, meta: SessionMeta = {}) {
+// Pass a transaction client (`db`) to create the session inside a caller's transaction
+// (e.g. signup, so user + contact + session commit atomically). Defaults to the global client.
+export async function createSession(
+  userId: string,
+  meta: SessionMeta = {},
+  db: Prisma.TransactionClient = prisma,
+) {
   const token = crypto.randomBytes(32).toString("base64url");
   const tokenHash = sha256(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await prisma.session.create({
+  await db.session.create({
     data: {
       userId,
       tokenHash,

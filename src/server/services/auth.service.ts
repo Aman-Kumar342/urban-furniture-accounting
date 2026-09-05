@@ -1,4 +1,5 @@
-import { Role, type User } from "@prisma/client";
+import { Role, ContactType, Prisma, type User } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { userRepo } from "@/server/repositories/user.repo";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { createSession, destroySession, type SessionMeta } from "@/server/auth/session";
@@ -15,25 +16,54 @@ export class AuthServiceError extends Error {
   }
 }
 
-// Self-signup creates an internal ACCOUNTANT. Admins and Contact-portal users are
-// provisioned elsewhere (seed / contact creation), never via public signup.
+// PUBLIC signup creates a CONTACT portal user linked to a Contact (never ADMIN/ACCOUNTANT —
+// elevated roles come only from admin "Create User"). The Contact is resolved by email:
+// linked if one exists without a portal user, otherwise created as a CUSTOMER. User + Contact
+// + session are created atomically in one transaction.
 export async function signup(
   input: SignupInput,
   meta?: SessionMeta,
 ): Promise<{ user: User; token: string }> {
-  const existing = await userRepo.findByEmail(input.email);
-  if (existing) {
+  const existingUser = await userRepo.findByEmail(input.email);
+  if (existingUser) {
     throw new AuthServiceError("EMAIL_TAKEN", 409, "That email is already registered.");
   }
   const passwordHash = await hashPassword(input.password);
-  const user = await userRepo.create({
-    name: input.name,
-    email: input.email,
-    passwordHash,
-    role: Role.ACCOUNTANT,
-  });
-  const { token } = await createSession(user.id, meta);
-  return { user, token };
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existingContact = await tx.contact.findUnique({
+        where: { email: input.email },
+        include: { portalUser: true },
+      });
+      if (existingContact?.portalUser) {
+        throw new AuthServiceError("EMAIL_TAKEN", 409, "That email is already registered.");
+      }
+      const contact =
+        existingContact ??
+        (await tx.contact.create({
+          data: { name: input.name, email: input.email, type: ContactType.CUSTOMER },
+        }));
+
+      const user = await tx.user.create({
+        data: {
+          name: input.name,
+          email: input.email,
+          passwordHash,
+          role: Role.CONTACT,
+          contactId: contact.id,
+        },
+      });
+      const { token } = await createSession(user.id, meta, tx);
+      return { user, token };
+    });
+  } catch (e) {
+    if (e instanceof AuthServiceError) throw e;
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      throw new AuthServiceError("EMAIL_TAKEN", 409, "That email is already registered.");
+    }
+    throw e;
+  }
 }
 
 export async function login(
