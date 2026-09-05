@@ -19,10 +19,10 @@ erDiagram
   Contact  ||--o{ JournalEntry    : "partner (denorm)"
 
   ProductCategory ||--o{ Product  : classifies
-  Product ||--o{ PurchaseOrderLine : ""
-  Product ||--o{ VendorBillLine    : ""
-  Product ||--o{ SalesOrderLine     : ""
-  Product ||--o{ InvoiceLine        : ""
+  Product ||--o{ PurchaseOrderLine : "on line"
+  Product ||--o{ VendorBillLine    : "on line"
+  Product ||--o{ SalesOrderLine    : "on line"
+  Product ||--o{ InvoiceLine       : "on line"
 
   Account ||--o{ Account       : "parent (hierarchy)"
   Account ||--o{ Journal       : "default account"
