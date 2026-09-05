@@ -145,6 +145,10 @@ Reports never loop in application code: they are single `GROUP BY`/`SUM` queries
   Prisma relations if strict referential integrity is later wanted.
 - `[ENGINEERING]` Auth uses **DB-backed sessions** (`Session` table): a random token to the
   client, only its SHA-256 hash stored; deleting the row = logout. bcrypt password hashes.
+- `[ENGINEERING]` **Single posting path:** `postEntry()` is the only sanctioned way to create
+  a POSTED entry, and the DB enforces the shape — entries may only be INSERTed as DRAFT
+  (trigger `uf_entry_insert_draft_only`); POSTED is reached only via the balance-validated
+  transition. No caller can bypass the invariant. See `docs/posting.md`.
 - `[ENGINEERING]` Derive Budget achieved/%, and account balances, at query time; store only
   drift-proof caches.
 - `[ENGINEERING]` Enforce INV-1/INV-6 with DB triggers **and** the service (defense in depth).

@@ -152,3 +152,20 @@ DROP TRIGGER IF EXISTS uf_journalentry_no_unpost ON "JournalEntry";
 CREATE TRIGGER uf_journalentry_no_unpost
   BEFORE UPDATE ON "JournalEntry"
   FOR EACH ROW EXECUTE FUNCTION uf_block_unpost();
+
+-- 5d. SINGLE ENFORCEMENT PATH: a journal entry may only be INSERTED as DRAFT. POSTED is
+-- reachable solely via a state transition (validated by 5a). This forces every posting
+-- through the create-DRAFT -> add-items -> flip-POSTED path that postEntry() uses, so the
+-- balanced invariant has one enforcement path even against direct DB writes.
+CREATE OR REPLACE FUNCTION uf_entry_insert_draft_only() RETURNS trigger AS $$
+BEGIN
+  IF NEW."state" <> 'DRAFT' THEN
+    RAISE EXCEPTION 'Journal entries must be inserted as DRAFT and posted via postEntry() (got state %).', NEW."state";
+  END IF;
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS uf_journalentry_insert_draft_only ON "JournalEntry";
+CREATE TRIGGER uf_journalentry_insert_draft_only
+  BEFORE INSERT ON "JournalEntry"
+  FOR EACH ROW EXECUTE FUNCTION uf_entry_insert_draft_only();
