@@ -22,6 +22,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Products", href: "/products" },
       { label: "Chart of Accounts", href: "/accounts" },
       { label: "Journals", href: "/journals" },
+      { label: "Analytic Accounts", href: "/analytic-accounts" },
     ],
   },
   { label: "Admin", items: [{ label: "Create user", href: "/admin/users/new", adminOnly: true }] },
