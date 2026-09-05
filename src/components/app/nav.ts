@@ -21,6 +21,13 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Invoices", href: "/invoices" },
     ],
   },
+  {
+    label: "Purchase",
+    items: [
+      { label: "Purchase Orders", href: "/purchase-orders" },
+      { label: "Bills", href: "/bills" },
+    ],
+  },
   // The mockup's "Account" master-data group grows as each screen ships.
   {
     label: "Account",
