@@ -10,6 +10,7 @@
 ```mermaid
 erDiagram
   Contact  ||--o| User            : "portal user (1-1)"
+  User     ||--o{ Session         : "has"
   Contact  ||--o{ SalesOrder      : customer
   Contact  ||--o{ CustomerInvoice : customer
   Contact  ||--o{ PurchaseOrder   : vendor
@@ -73,6 +74,7 @@ Archived = soft-delete flag (never hard-delete referenced masters).
 |---|---|---|---|---|
 | **User** | Auth + RBAC principal | `contactId?→Contact` (unique, portal link) | `email` unique; idx `role` | isActive toggle |
 | **Contact** | Customer/vendor partner | — | `email` unique; `type` default BOTH; idx type, isArchived | archivable |
+| **Session** | DB-backed login session | `userId→User` (cascade) | `tokenHash` unique; idx userId, expiresAt | expires; delete row = logout |
 
 ### Products
 | Entity | Purpose | Key FKs | Constraints / indexes | Lifecycle |

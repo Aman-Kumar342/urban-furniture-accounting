@@ -84,21 +84,15 @@ ALTER TABLE "BudgetLine" DROP CONSTRAINT IF EXISTS budgetline_committed_nn;
 ALTER TABLE "BudgetLine" ADD CONSTRAINT budgetline_committed_nn CHECK ("committedAmount" >= 0);
 
 -- =====================================================================
--- 4. AUDIT FOREIGN KEYS (createdById / responsibleId are scalar in Prisma)
+-- 4. AUDIT STAMPS (createdById / responsibleId)
+-- ---------------------------------------------------------------------
+-- Intentionally NO database FK here. These are audit stamps set by the service layer from
+-- the authenticated user's id. Keeping them out of the DB-constraint layer keeps Prisma's
+-- migration/drift detection clean: Prisma models foreign keys and indexes, but it does NOT
+-- model the CHECK constraints and triggers in this file, so those never cause drift. If
+-- strict referential integrity is later wanted, promote them to Prisma relations in
+-- schema.prisma (so Prisma owns the FK) rather than adding it here.
 -- =====================================================================
-DO $$
-DECLARE t text;
-BEGIN
-  FOREACH t IN ARRAY ARRAY['JournalEntry','PurchaseOrder','SalesOrder','VendorBill','CustomerInvoice','Payment'] LOOP
-    EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS fk_createdby', t);
-    EXECUTE format('ALTER TABLE %I ADD CONSTRAINT fk_createdby FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL', t);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I ("createdById")', t||'_createdby_idx', t);
-  END LOOP;
-END $$;
-
-ALTER TABLE "Budget" DROP CONSTRAINT IF EXISTS fk_responsible;
-ALTER TABLE "Budget" ADD CONSTRAINT fk_responsible FOREIGN KEY ("responsibleId") REFERENCES "User"("id") ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS budget_responsible_idx ON "Budget" ("responsibleId");
 
 -- =====================================================================
 -- 5. LEDGER GUARANTEES — RECOMMENDED TRIGGERS  (INV-1, INV-3, INV-6)

@@ -57,7 +57,8 @@ row to prevent a double-spend race on `amountDue`.
 
 - **All foreign keys are indexed** (PostgreSQL does not auto-index FK columns) — needed for
   the many "list documents for this partner/product/account" screens and for join
-  performance. Declared as `@@index` in the schema; audit-FK indexes in `constraints.sql`.
+  performance. Declared as `@@index` in the schema. Audit stamps (`createdById`/
+  `responsibleId`) are deliberately un-FK'd — see §8.
 - **`JournalItem(accountId)`** — the hot path for the ledger and both financial reports
   (group balances by account).
 - **`JournalItem(analyticAccountId)`** — Budget "Achieved" aggregation per analytic.
@@ -138,7 +139,12 @@ Reports never loop in application code: they are single `GROUP BY`/`SUM` queries
   (PO/SO/Bill/Invoice) rather than one unified move table — clearer 1-1 mapping to the mockup
   and safer for a 24h build.
 - `[ENGINEERING]` `NumberSequence` table for concurrency-safe numbering.
-- `[ENGINEERING]` `createdById`/`responsibleId` scalar + SQL FK to keep `User` lean.
+- `[ENGINEERING]` `createdById`/`responsibleId` are un-FK'd audit stamps set by the service
+  from the authenticated user. This keeps Prisma's migration/drift detection clean (Prisma
+  models FKs but not the CHECK constraints/triggers in `constraints.sql`); promote them to
+  Prisma relations if strict referential integrity is later wanted.
+- `[ENGINEERING]` Auth uses **DB-backed sessions** (`Session` table): a random token to the
+  client, only its SHA-256 hash stored; deleting the row = logout. bcrypt password hashes.
 - `[ENGINEERING]` Derive Budget achieved/%, and account balances, at query time; store only
   drift-proof caches.
 - `[ENGINEERING]` Enforce INV-1/INV-6 with DB triggers **and** the service (defense in depth).

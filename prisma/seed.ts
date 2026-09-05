@@ -1,10 +1,17 @@
-import { PrismaClient, AccountType, JournalType } from "@prisma/client";
+import {
+  PrismaClient,
+  AccountType,
+  JournalType,
+  Role,
+  ContactType,
+} from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// --- Scaffold seed: system CONFIG only (pre-configured per the official mockup). ---
-// Users are seeded in the Auth phase; demo contacts/products/transactions after the
-// postEntry() service exists. Full plan: db/seed-plan.md. This seed is idempotent.
+// --- Seed: system CONFIG (pre-configured per the mockup) + auth users. ---
+// Demo contacts/products/transactions are seeded after the postEntry() service exists.
+// Full plan: db/seed-plan.md. Idempotent (upserts).
 
 const ACCOUNTS: { code: string; name: string; type: AccountType }[] = [
   { code: "1000", name: "Cash A/c", type: "ASSET" },
@@ -36,6 +43,7 @@ const SEQUENCES: { key: string; year: number }[] = [
 ];
 
 async function main() {
+  // Chart of Accounts
   for (const a of ACCOUNTS) {
     await prisma.account.upsert({
       where: { code: a.code },
@@ -44,6 +52,7 @@ async function main() {
     });
   }
 
+  // Journals (resolve default account by name)
   for (const j of JOURNALS) {
     const acc = await prisma.account.findUniqueOrThrow({ where: { name: j.account } });
     await prisma.journal.upsert({
@@ -53,6 +62,7 @@ async function main() {
     });
   }
 
+  // Document number sequences
   for (const s of SEQUENCES) {
     await prisma.numberSequence.upsert({
       where: { key_year: { key: s.key, year: s.year } },
@@ -61,13 +71,57 @@ async function main() {
     });
   }
 
-  const [accounts, journals, sequences] = await Promise.all([
+  // A Contact for the CONTACT-portal user to be scoped to.
+  const nimesh = await prisma.contact.upsert({
+    where: { email: "nimesh@example.com" },
+    update: {},
+    create: {
+      name: "Nimesh Pathak",
+      type: ContactType.CUSTOMER,
+      email: "nimesh@example.com",
+      city: "Ahmedabad",
+      state: "Gujarat",
+      country: "India",
+      pincode: "380001",
+    },
+  });
+
+  // Users (dev passwords — see db/seed-plan.md; real deploy sets its own).
+  const USERS: {
+    name: string;
+    email: string;
+    role: Role;
+    password: string;
+    contactId: string | null;
+  }[] = [
+    { name: "Admin", email: "admin@urbanfurniture.test", role: Role.ADMIN, password: "Admin@123", contactId: null },
+    { name: "Accountant", email: "accountant@urbanfurniture.test", role: Role.ACCOUNTANT, password: "Account@123", contactId: null },
+    { name: "Nimesh (Portal)", email: "nimesh@urbanfurniture.test", role: Role.CONTACT, password: "Portal@123", contactId: nimesh.id },
+  ];
+  for (const u of USERS) {
+    const passwordHash = await bcrypt.hash(u.password, 10);
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: { name: u.name, role: u.role, contactId: u.contactId },
+      create: {
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        passwordHash,
+        contactId: u.contactId,
+      },
+    });
+  }
+
+  const [accounts, journals, sequences, users, contacts] = await Promise.all([
     prisma.account.count(),
     prisma.journal.count(),
     prisma.numberSequence.count(),
+    prisma.user.count(),
+    prisma.contact.count(),
   ]);
   console.log(
-    `Seed complete (config): ${accounts} accounts, ${journals} journals, ${sequences} sequences.`,
+    `Seed complete: ${accounts} accounts, ${journals} journals, ${sequences} sequences, ${users} users, ${contacts} contacts.`,
   );
 }
 
