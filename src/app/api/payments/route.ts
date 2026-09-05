@@ -1,6 +1,6 @@
-import { requireStaff } from "@/server/auth/rbac";
+import { requireStaff, requireUser } from "@/server/auth/rbac";
 import { createPaymentSchema } from "@/server/validation/sales";
-import { registerPayment } from "@/server/services/payment.service";
+import { registerPayment, listPayments } from "@/server/services/payment.service";
 import { ok, parseJson, errorToResponse } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,15 @@ export async function POST(req: Request) {
     const user = await requireStaff();
     const input = createPaymentSchema.parse(await parseJson(req));
     return ok(await registerPayment(input, user.id), 201);
+  } catch (e) {
+    return errorToResponse(e);
+  }
+}
+
+export async function GET() {
+  try {
+    const user = await requireUser();
+    return ok({ payments: await listPayments(user) });
   } catch (e) {
     return errorToResponse(e);
   }

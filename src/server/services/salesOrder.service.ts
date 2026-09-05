@@ -53,6 +53,15 @@ export function listSalesOrders() {
   });
 }
 
+export async function getSalesOrder(id: string) {
+  const so = await prisma.salesOrder.findUnique({
+    where: { id },
+    include: { customer: true, lines: { include: { product: true } }, invoice: true },
+  });
+  if (!so) throw NotFound("Sales order not found.");
+  return so;
+}
+
 export async function confirmSalesOrder(id: string) {
   const so = await prisma.salesOrder.findUnique({ where: { id } });
   if (!so) throw NotFound("Sales order not found.");

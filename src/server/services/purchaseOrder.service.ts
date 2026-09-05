@@ -53,6 +53,15 @@ export function listPurchaseOrders() {
   });
 }
 
+export async function getPurchaseOrder(id: string) {
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id },
+    include: { vendor: true, lines: { include: { product: true } }, bill: true },
+  });
+  if (!po) throw NotFound("Purchase order not found.");
+  return po;
+}
+
 export async function confirmPurchaseOrder(id: string) {
   const po = await prisma.purchaseOrder.findUnique({ where: { id } });
   if (!po) throw NotFound("Purchase order not found.");

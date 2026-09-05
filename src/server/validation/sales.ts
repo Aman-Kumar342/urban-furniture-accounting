@@ -56,3 +56,31 @@ export type CreateContactInput = z.infer<typeof createContactSchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type CreateSalesOrderInput = z.infer<typeof createSalesOrderSchema>;
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
+
+export const updateContactSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    type: z.nativeEnum(ContactType).optional(),
+    email: z.string().trim().toLowerCase().email().max(200).optional(),
+    phone: z.string().trim().max(40).optional(),
+    street: z.string().trim().max(200).optional(),
+    city: z.string().trim().max(100).optional(),
+    state: z.string().trim().max(100).optional(),
+    country: z.string().trim().max(100).optional(),
+    pincode: z.string().trim().max(20).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
+
+export const updateProductSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    type: z.nativeEnum(ProductType).optional(),
+    categoryId: z.string().uuid().optional(),
+    categoryName: z.string().trim().min(1).max(120).optional(),
+    salesPrice: z.number().nonnegative().optional(),
+    cost: z.number().nonnegative().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
+
+export type UpdateContactInput = z.infer<typeof updateContactSchema>;
+export type UpdateProductInput = z.infer<typeof updateProductSchema>;

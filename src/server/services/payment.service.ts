@@ -5,7 +5,7 @@ import { postEntry, type PostedEntry } from "./posting.service";
 import { nextNumber } from "./numbering.service";
 import { assertPayable, deriveStatus } from "./sales.calc";
 import type { CreatePaymentInput } from "@/server/validation/sales";
-import type { Payment, CustomerInvoice, VendorBill } from "@prisma/client";
+import type { Payment, CustomerInvoice, VendorBill, User } from "@prisma/client";
 
 export type PaymentResult = {
   payment: Payment;
@@ -143,4 +143,32 @@ export async function registerPayment(
     });
     return { payment, entry, bill: updatedBill };
   });
+}
+
+// Contact-portal users see only their own payments (server-side ownership).
+export function listPayments(user: User) {
+  const where = user.role === "CONTACT" ? { partnerId: user.contactId ?? "__none__" } : {};
+  return prisma.payment.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { partner: true, journal: true, allocations: true },
+  });
+}
+
+export async function getPaymentForUser(id: string, user: User) {
+  const payment = await prisma.payment.findUnique({
+    where: { id },
+    include: {
+      partner: true,
+      journal: true,
+      journalEntry: { include: { items: true } },
+      allocations: { include: { invoice: true, bill: true } },
+    },
+  });
+  if (!payment) throw NotFound("Payment not found.");
+  if (user.role === "CONTACT" && payment.partnerId !== user.contactId) {
+    throw NotFound("Payment not found.");
+  }
+  return payment;
 }
