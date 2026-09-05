@@ -20,20 +20,94 @@ datasource db {
 }
 
 // ============================== ENUMS ==============================
-enum Role { ADMIN ACCOUNTANT CONTACT }
-enum ContactType { CUSTOMER VENDOR BOTH }
-enum ProductType { GOODS SERVICE COMBO }
-enum AccountType { ASSET LIABILITY INCOME EXPENSE CAPITAL }
-enum JournalType { SALES PURCHASE BANK CASH MISC }
-enum AnalyticType { INCOME EXPENSE }
-enum EntryState { DRAFT POSTED CANCELLED }
-enum OrderState { DRAFT CONFIRMED CANCELLED }
-enum DocState { DRAFT CONFIRMED CANCELLED }
-enum PaymentStatus { NOT_PAID PARTIAL PAID }
-enum PaymentDirection { RECEIVE SEND }
-enum PaymentState { DRAFT CONFIRMED CANCELLED }
-enum BudgetState { DRAFT CONFIRMED REVISED CANCELLED }
-enum SourceType { MANUAL INVOICE BILL PAYMENT OPENING }
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  CONTACT
+}
+
+enum ContactType {
+  CUSTOMER
+  VENDOR
+  BOTH
+}
+
+enum ProductType {
+  GOODS
+  SERVICE
+  COMBO
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+  CAPITAL
+}
+
+enum JournalType {
+  SALES
+  PURCHASE
+  BANK
+  CASH
+  MISC
+}
+
+enum AnalyticType {
+  INCOME
+  EXPENSE
+}
+
+enum EntryState {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum OrderState {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum DocState {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  NOT_PAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentDirection {
+  RECEIVE
+  SEND
+}
+
+enum PaymentState {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum BudgetState {
+  DRAFT
+  CONFIRMED
+  REVISED
+  CANCELLED
+}
+
+enum SourceType {
+  MANUAL
+  INVOICE
+  BILL
+  PAYMENT
+  OPENING
+}
 
 // ============================== IDENTITY & ACCESS ==============================
 model User {
@@ -485,7 +559,9 @@ model PaymentAllocation {
 model NumberSequence {
   id        String @id @default(uuid())
   key       String // SO | INV | BILL | PO | PAY | JE
-  year      Int? // null for non-year-scoped sequences (e.g. SO); set for year-scoped ones
+  // 0 = non-year-scoped (e.g. SO/PO). Non-null so @@unique([key, year]) truly prevents
+  // duplicates — in Postgres NULLs are distinct, which would allow duplicate (key, NULL) rows.
+  year      Int    @default(0)
   nextValue Int    @default(1)
 
   @@unique([key, year])
