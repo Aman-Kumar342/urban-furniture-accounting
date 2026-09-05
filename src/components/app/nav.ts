@@ -14,6 +14,7 @@ export interface NavSection {
 
 export const NAV_SECTIONS: NavSection[] = [
   { label: null, items: [{ label: "Dashboard", href: "/" }] },
+  { label: "Sales", items: [{ label: "Sales Orders", href: "/sales-orders" }] },
   // The mockup's "Account" master-data group grows as each screen ships.
   {
     label: "Account",
