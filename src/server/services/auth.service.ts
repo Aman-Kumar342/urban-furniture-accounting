@@ -16,10 +16,33 @@ export class AuthServiceError extends Error {
   }
 }
 
+// Resolves the Contact a portal (CONTACT) user links to, by email: link an existing Contact
+// that has no portal user yet, otherwise create one as a CUSTOMER. Rejects (409) if the email
+// already belongs to a portal-linked Contact. Runs inside the caller's transaction so the
+// link and the user commit atomically. Shared by public signup and admin "Create User".
+export async function resolvePortalContact(
+  tx: Prisma.TransactionClient,
+  name: string,
+  email: string,
+) {
+  const existingContact = await tx.contact.findUnique({
+    where: { email },
+    include: { portalUser: true },
+  });
+  if (existingContact?.portalUser) {
+    throw new AuthServiceError("EMAIL_TAKEN", 409, "That email is already registered.");
+  }
+  return (
+    existingContact ??
+    (await tx.contact.create({
+      data: { name, email, type: ContactType.CUSTOMER },
+    }))
+  );
+}
+
 // PUBLIC signup creates a CONTACT portal user linked to a Contact (never ADMIN/ACCOUNTANT —
-// elevated roles come only from admin "Create User"). The Contact is resolved by email:
-// linked if one exists without a portal user, otherwise created as a CUSTOMER. User + Contact
-// + session are created atomically in one transaction.
+// elevated roles come only from admin "Create User"). User + Contact link + session are
+// created atomically in one transaction.
 export async function signup(
   input: SignupInput,
   meta?: SessionMeta,
@@ -32,18 +55,7 @@ export async function signup(
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const existingContact = await tx.contact.findUnique({
-        where: { email: input.email },
-        include: { portalUser: true },
-      });
-      if (existingContact?.portalUser) {
-        throw new AuthServiceError("EMAIL_TAKEN", 409, "That email is already registered.");
-      }
-      const contact =
-        existingContact ??
-        (await tx.contact.create({
-          data: { name: input.name, email: input.email, type: ContactType.CUSTOMER },
-        }));
+      const contact = await resolvePortalContact(tx, input.name, input.email);
 
       const user = await tx.user.create({
         data: {
