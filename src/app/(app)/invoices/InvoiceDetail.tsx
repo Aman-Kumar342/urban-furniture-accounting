@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { PaymentForm } from "@/components/payments/PaymentForm";
 import { formatMoney } from "@/lib/format";
@@ -13,6 +14,7 @@ import {
   DOC_STATE_TONE,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
+  paidByMethod,
   type InvoiceDetail as Invoice,
 } from "@/lib/invoices";
 import type { Contact } from "@/lib/contacts";
@@ -101,6 +103,7 @@ export function InvoiceDetail({ id }: { id: string }) {
   const customerName = names.contact.get(invoice.customerId) ?? "—";
   const isDraft = invoice.state === "DRAFT";
   const canPay = invoice.state === "CONFIRMED" && dueCents > 0;
+  const paid = paidByMethod(invoice.allocations);
 
   return (
     <div className="space-y-5">
@@ -111,6 +114,14 @@ export function InvoiceDetail({ id }: { id: string }) {
           {!isDraft && <Badge tone={PAYMENT_STATUS_TONE[invoice.paymentStatus]}>{PAYMENT_STATUS_LABEL[invoice.paymentStatus]}</Badge>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {invoice.salesOrderId && (
+            <Link href={`/sales-orders/${invoice.salesOrderId}`}>
+              <Button variant="ghost" title="Open the sales order this invoice was created from">SO</Button>
+            </Link>
+          )}
+          <Link href="/reports/budget">
+            <Button variant="ghost" title="Open the budget report">Budget</Button>
+          </Link>
           {isDraft &&
             (pendingConfirm ? (
               <div className="flex items-center gap-2">
@@ -129,9 +140,15 @@ export function InvoiceDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {isDraft && (
+      {isDraft ? (
         <p className="text-sm text-muted">
           Confirming posts a balanced journal entry (Dr Debtors / Cr Sales Income) and locks the invoice.
+        </p>
+      ) : (
+        <p className="text-xs text-muted">
+          Status is derived: <strong className="font-medium">Paid</strong> when amount due is 0,{" "}
+          <strong className="font-medium">Partial</strong> when it&rsquo;s below the invoice total,{" "}
+          <strong className="font-medium">Not paid</strong> when it equals the total.
         </p>
       )}
       {actionError && (
@@ -156,6 +173,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 
       <dl className="grid gap-4 rounded-lg border border-line bg-surface p-6 sm:grid-cols-4">
         <Field label="Customer" value={customerName} />
+        <ReferenceEditor invoice={invoice} onSaved={(ref) => setInvoice((i) => (i ? { ...i, reference: ref } : i))} />
         <Field label="Invoice date" value={formatEntryDate(invoice.invoiceDate)} />
         <Field label="Due date" value={invoice.dueDate ? formatEntryDate(invoice.dueDate) : "—"} />
         <Field label="Amount due" value={formatMoney(invoice.amountDue)} mono />
@@ -193,7 +211,11 @@ export function InvoiceDetail({ id }: { id: string }) {
         <div className="flex justify-end border-t border-line bg-paper/40 px-4 py-4">
           <dl className="w-full max-w-xs space-y-1.5 text-sm">
             <Row label="Total" value={formatMoney(invoice.amountTotal)} />
-            <Row label="Amount paid" value={formatMoney(invoice.amountPaid)} />
+            {paid.cash > 0 && <Row label="Paid via Cash" value={formatMoney(paid.cash.toFixed(2))} />}
+            {paid.bank > 0 && <Row label="Paid via Bank" value={formatMoney(paid.bank.toFixed(2))} />}
+            {paid.cash === 0 && paid.bank === 0 && (parseCents(invoice.amountPaid) ?? 0) > 0 && (
+              <Row label="Amount paid" value={formatMoney(invoice.amountPaid)} />
+            )}
             <div className="border-t border-line pt-1.5">
               <Row label="Amount due" value={formatMoney(invoice.amountDue)} strong />
             </div>
@@ -219,6 +241,47 @@ export function InvoiceDetail({ id }: { id: string }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function ReferenceEditor({ invoice, onSaved }: { invoice: Invoice; onSaved: (ref: string | null) => void }) {
+  const [val, setVal] = useState(invoice.reference ?? "");
+  const [saving, setSaving] = useState(false);
+  const [savedRef, setSavedRef] = useState(false);
+  const [err, setErr] = useState(false);
+
+  if (invoice.state !== "DRAFT") {
+    return <Field label="Invoice reference" value={invoice.reference || "—"} />;
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr(false);
+    try {
+      const res = await apiFetch<{ invoice: { reference: string | null } }>(`/api/invoices/${invoice.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ reference: val.trim() || null }),
+      });
+      onSaved(res.invoice.reference);
+      setSavedRef(true);
+      setTimeout(() => setSavedRef(false), 1500);
+    } catch {
+      setErr(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium text-muted">Invoice reference</dt>
+      <dd className="mt-1 flex items-center gap-2">
+        <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. ABC-26-001" className="h-9" invalid={err} />
+        <Button type="button" variant="ghost" onClick={save} loading={saving} className="h-9 shrink-0 px-3 text-sm">
+          {savedRef ? "Saved" : "Save"}
+        </Button>
+      </dd>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { money, round2 } from "@/lib/money";
 import { NotFound, Conflict, Unprocessable } from "@/lib/errors";
 import { postEntry } from "./posting.service";
+import type { UpdateInvoiceInput } from "@/server/validation/sales";
 
 export function listInvoices(user: User) {
   // Contact-portal users see only their own invoices (server-side ownership).
@@ -16,7 +17,8 @@ export async function getInvoiceForUser(id: string, user: User) {
     include: {
       lines: true,
       journalEntry: { include: { items: true } },
-      allocations: true,
+      // Include each settlement's payment method so the UI can split Paid via Cash / Bank.
+      allocations: { include: { payment: { include: { journal: { select: { type: true } } } } } },
     },
   });
   if (!inv) throw NotFound("Invoice not found.");
@@ -25,6 +27,22 @@ export async function getInvoiceForUser(id: string, user: User) {
     throw NotFound("Invoice not found.");
   }
   return inv;
+}
+
+// Edit a DRAFT invoice's header (customer reference / due date). Locked once confirmed.
+export async function updateInvoice(id: string, input: UpdateInvoiceInput) {
+  const inv = await prisma.customerInvoice.findUnique({ where: { id } });
+  if (!inv) throw NotFound("Invoice not found.");
+  if (inv.state !== "DRAFT") throw Conflict("Only a draft invoice can be edited.");
+  return prisma.customerInvoice.update({
+    where: { id },
+    data: { reference: input.reference, dueDate: input.dueDate },
+    include: {
+      lines: true,
+      journalEntry: { include: { items: true } },
+      allocations: { include: { payment: { include: { journal: { select: { type: true } } } } } },
+    },
+  });
 }
 
 // Confirm a draft invoice: posts the balanced journal entry (Dr Debtors / Cr Sales Income)

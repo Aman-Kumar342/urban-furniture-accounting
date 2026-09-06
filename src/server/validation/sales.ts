@@ -93,3 +93,13 @@ export const updateProductSchema = z
 
 export type UpdateContactInput = z.infer<typeof updateContactSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+
+// Editable header fields on a DRAFT customer invoice (the customer's own reference + due date).
+export const updateInvoiceSchema = z
+  .object({
+    reference: z.string().trim().max(60).nullable().optional(),
+    dueDate: z.coerce.date().nullable().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
+
+export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>;

@@ -6,6 +6,7 @@ export type PaymentStatus = "NOT_PAID" | "PARTIAL" | "PAID";
 export interface InvoiceRow {
   id: string;
   number: string;
+  reference: string | null;
   customerId: string;
   salesOrderId: string | null;
   invoiceDate: string;
@@ -29,9 +30,28 @@ export interface InvoiceLine {
   lineTotal: string;
 }
 
+export interface InvoiceAllocation {
+  id: string;
+  amount: string;
+  payment: { journal: { type: "SALES" | "PURCHASE" | "BANK" | "CASH" | "MISC" } } | null;
+}
+
 export interface InvoiceDetail extends InvoiceRow {
   lines: InvoiceLine[];
   journalEntry: { id: string; number: string } | null;
+  allocations: InvoiceAllocation[];
+}
+
+// Split the paid amount by the settling payment's journal (Cash vs Bank), for the invoice footer.
+export function paidByMethod(allocations: InvoiceAllocation[]): { cash: number; bank: number } {
+  let cash = 0;
+  let bank = 0;
+  for (const a of allocations) {
+    const cents = Math.round(Number(a.amount) * 100);
+    if (a.payment?.journal.type === "CASH") cash += cents;
+    else bank += cents;
+  }
+  return { cash: cash / 100, bank: bank / 100 };
 }
 
 export const DOC_STATE_LABEL: Record<DocState, string> = {

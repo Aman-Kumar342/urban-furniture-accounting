@@ -496,6 +496,7 @@ model SalesOrderLine {
 model CustomerInvoice {
   id             String        @id @default(uuid())
   number         String        @unique // e.g. Inv/2026/001
+  reference      String? // customer's own invoice reference (free text), e.g. ABC-26-001
   customerId     String
   customer       Contact       @relation(fields: [customerId], references: [id])
   salesOrderId   String?       @unique
