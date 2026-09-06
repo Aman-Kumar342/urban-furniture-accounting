@@ -96,6 +96,8 @@ export function BudgetDetail({ id }: { id: string }) {
         <Actions state={budget.state} pending={pending} setPending={setPending} busy={busy} run={runAction} editHref={`/budgets/${id}/edit`} />
       </div>
 
+      <BudgetStateTrack state={budget.state} />
+
       {actionError && (
         <div role="alert" className="rounded-md border-l-2 border-oxblood bg-oxblood/5 px-3 py-2 text-sm text-oxblood">
           {actionError}
@@ -236,6 +238,23 @@ function Actions({
           </Button>
         </>
       )}
+    </div>
+  );
+}
+
+// Draft › Confirmed › Revised › Cancelled — the current stage highlighted (per the mockup).
+function BudgetStateTrack({ state }: { state: Budget["state"] }) {
+  const stages: Budget["state"][] = ["DRAFT", "CONFIRMED", "REVISED", "CANCELLED"];
+  return (
+    <div className="flex items-center gap-1 text-xs">
+      {stages.map((s, i) => (
+        <span key={s} className="flex items-center gap-1">
+          {i > 0 && <span className="text-muted">›</span>}
+          <span className={`rounded px-2 py-0.5 ${s === state ? "bg-pine font-medium text-paper" : "bg-line/50 text-muted"}`}>
+            {BUDGET_STATE_LABEL[s]}
+          </span>
+        </span>
+      ))}
     </div>
   );
 }

@@ -2,7 +2,17 @@ import { parseCents } from "@/lib/journalEntries";
 
 // A small, real donut: the achieved share of committed. Not decoration — it reads the budget's
 // own committed/achieved figures. Achieved arc in income green, the rest is the neutral track.
-export function BudgetDonut({ committed, achieved, size = 84 }: { committed: string; achieved: string; size?: number }) {
+export function BudgetDonut({
+  committed,
+  achieved,
+  size = 84,
+  showLabel = true,
+}: {
+  committed: string;
+  achieved: string;
+  size?: number;
+  showLabel?: boolean;
+}) {
   const c = parseCents(committed) ?? 0;
   const a = parseCents(achieved) ?? 0;
   const pct = c > 0 ? Math.min(100, Math.round((a / c) * 100)) : 0;
@@ -11,7 +21,7 @@ export function BudgetDonut({ committed, achieved, size = 84 }: { committed: str
   const dash = (pct / 100) * circ;
 
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
+    <div className="relative shrink-0" style={{ width: size, height: size }} title={`${pct}% achieved`}>
       <svg viewBox="0 0 80 80" width={size} height={size} className="-rotate-90">
         <circle cx="40" cy="40" r={r} fill="none" stroke="var(--color-line)" strokeWidth="10" />
         <circle
@@ -25,10 +35,12 @@ export function BudgetDonut({ committed, achieved, size = 84 }: { committed: str
           strokeDasharray={`${dash} ${circ - dash}`}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="tnum text-sm font-semibold text-ink">{pct}%</span>
-        <span className="text-[0.6rem] text-muted">achieved</span>
-      </div>
+      {showLabel && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="tnum text-sm font-semibold text-ink">{pct}%</span>
+          <span className="text-[0.6rem] text-muted">achieved</span>
+        </div>
+      )}
     </div>
   );
 }
