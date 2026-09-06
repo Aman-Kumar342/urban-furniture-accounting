@@ -39,6 +39,11 @@ next-env.d.ts
 *.tsbuildinfo
 .turbo/
 
+# Playwright (E2E)
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # Next.js auto-generated agent files (recreated by `next dev`)
 CLAUDE.md
 AGENTS.md

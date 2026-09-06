@@ -43,7 +43,7 @@ export function AppShell({ user, children }: AppShellProps) {
           {sections.map((section, i) => (
             <div key={i}>
               {section.label && (
-                <p className="px-3 pb-1.5 text-xs font-semibold text-paper/45">{section.label}</p>
+                <p className="px-3 pb-1.5 text-xs font-semibold text-paper/70">{section.label}</p>
               )}
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
