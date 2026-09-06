@@ -48,6 +48,8 @@ jobs:
         run: npx prisma migrate deploy
       - name: Apply SQL constraints & triggers
         run: psql "$DATABASE_URL" -f db/constraints.sql
+      - name: Seed config (chart of accounts, journals, sequences)
+        run: npm run db:seed
 
       - name: Typecheck
         run: npm run typecheck
