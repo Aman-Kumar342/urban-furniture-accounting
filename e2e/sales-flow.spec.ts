@@ -53,7 +53,7 @@ test("a sale flows from order to a paid, posted invoice and the books stay balan
   await expect(page.getByRole("button", { name: "Receive payment" })).toBeVisible();
   await page.getByRole("button", { name: "Receive payment" }).click();
   await expect(page.getByLabel("Amount", { exact: true })).toBeVisible();
-  await page.locator("form").getByRole("button", { name: "Receive payment" }).click();
+  await page.locator("form").getByRole("button", { name: "Confirm payment" }).click();
   await expect(page.getByText("Paid").first()).toBeVisible();
 
   // 5. The invariant: after a full posting cycle the Balance Sheet still balances.

@@ -9,8 +9,10 @@ import { apiFetch, ApiRequestError } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { parseCents } from "@/lib/journalEntries";
 
-// One payment form for both directions. The backend derives RECEIVE (invoice) / SEND (bill) from
-// the document — the client only says which document and how much. Never sends a direction.
+// Bill/Invoice payment, laid out per the mockup's Payment screen. The backend derives RECEIVE
+// (invoice) / SEND (bill) from the document — the Payment Type is shown but set automatically.
+// A payment posts as CONFIRMED in one atomic step (there is no draft/cancel step server-side),
+// so the status track reflects that rather than offering a fake lifecycle.
 export function PaymentForm({
   kind,
   targetId,
@@ -34,6 +36,7 @@ export function PaymentForm({
   const [error, setError] = useState<string | null>(null);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const dueCents = parseCents(amountDue) ?? 0;
 
@@ -75,12 +78,52 @@ export function PaymentForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded-lg border border-line bg-surface p-5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-ink">{receive ? "Receive payment" : "Send payment"}</p>
-        <span className="rounded-full border border-line bg-paper px-2 py-0.5 text-xs font-medium text-muted">
-          {receive ? "Receive" : "Send"} · set automatically
-        </span>
+    <form onSubmit={onSubmit} className="rounded-lg border border-line bg-surface p-5 print:border-0 print:p-0">
+      {/* Header: title · action buttons + ⚙ · status track */}
+      <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <p className="font-display text-lg text-ink">{receive ? "Receive payment" : "Send payment"}</p>
+        <div className="flex items-center gap-3">
+          <StatusTrack />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="More options"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-line text-muted transition-colors hover:bg-line/50 hover:text-ink"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div role="menu" className="absolute right-0 z-10 mt-1 w-44 rounded-md border border-line bg-surface py-1 shadow-lg">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    window.print();
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper"
+                >
+                  Print
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled
+                  title="Email delivery isn't configured"
+                  className="block w-full cursor-not-allowed px-3 py-2 text-left text-sm text-muted/60"
+                >
+                  Send by email
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -89,22 +132,28 @@ export function PaymentForm({
         </div>
       )}
 
+      {/* Payment Type — set automatically from the document (invoice = Receive, bill = Send). */}
+      <fieldset className="mt-4">
+        <legend className="text-sm font-medium text-ink">Payment Type</legend>
+        <div className="mt-1.5 flex flex-wrap items-center gap-5 text-sm">
+          <label className="inline-flex items-center gap-2 text-ink">
+            <input type="radio" name="pf-type" checked={!receive} disabled className="accent-pine" /> Send
+          </label>
+          <label className="inline-flex items-center gap-2 text-ink">
+            <input type="radio" name="pf-type" checked={receive} disabled className="accent-pine" /> Receive
+          </label>
+          <span className="text-xs text-muted">Set automatically from the document</span>
+        </div>
+      </fieldset>
+
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {partnerName && (
-          <FormField label="Partner" htmlFor="pf-partner">
-            <Input id="pf-partner" value={partnerName} disabled />
-          </FormField>
-        )}
-        <FormField label="Amount due" htmlFor="pf-due">
-          <Input id="pf-due" className="tnum text-right" value={formatMoney(amountDue)} disabled />
+        <FormField label="Partner" htmlFor="pf-partner">
+          <Input id="pf-partner" value={partnerName ?? "—"} disabled />
         </FormField>
-        <FormField label="Method" htmlFor="pf-method">
-          <Select id="pf-method" value={method} onChange={(e) => setMethod(e.target.value as "BANK" | "CASH")}>
-            <option value="BANK">Bank</option>
-            <option value="CASH">Cash</option>
-          </Select>
+        <FormField label="Date" htmlFor="pf-date">
+          <Input id="pf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
         </FormField>
-        <FormField label="Amount" htmlFor="pf-amount" error={amountError ?? undefined}>
+        <FormField label="Amount" htmlFor="pf-amount" error={amountError ?? undefined} hint={`Amount due ${formatMoney(amountDue)}`}>
           <Input
             id="pf-amount"
             type="number"
@@ -121,8 +170,11 @@ export function PaymentForm({
             autoFocus
           />
         </FormField>
-        <FormField label="Date" htmlFor="pf-date">
-          <Input id="pf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+        <FormField label="Payment Via" htmlFor="pf-method">
+          <Select id="pf-method" value={method} onChange={(e) => setMethod(e.target.value as "BANK" | "CASH")}>
+            <option value="BANK">Bank</option>
+            <option value="CASH">Cash</option>
+          </Select>
         </FormField>
       </div>
 
@@ -132,14 +184,28 @@ export function PaymentForm({
         </FormField>
       </div>
 
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-5 flex items-center gap-3 print:hidden">
         <Button type="submit" loading={busy}>
-          {receive ? "Receive payment" : "Send payment"}
+          Confirm payment
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
       </div>
     </form>
+  );
+}
+
+// A payment is recorded as Confirmed in one step (the ledger entry posts atomically). The track
+// shows that outcome; Draft/Cancelled are not separate server states, so they are shown inactive.
+function StatusTrack() {
+  return (
+    <div className="flex items-center gap-1 text-xs" aria-label="Payment posts as Confirmed">
+      <span className="rounded px-2 py-0.5 bg-line/50 text-muted">Draft</span>
+      <span className="text-muted">›</span>
+      <span className="rounded bg-pine px-2 py-0.5 font-medium text-paper">Confirmed</span>
+      <span className="text-muted">›</span>
+      <span className="rounded px-2 py-0.5 bg-line/50 text-muted">Cancelled</span>
+    </div>
   );
 }
