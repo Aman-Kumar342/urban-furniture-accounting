@@ -73,7 +73,7 @@ export function AppShell({ user, children }: AppShellProps) {
 
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-ink/40 md:hidden"
+          className="fixed inset-0 z-30 bg-ink/80 backdrop-blur-sm md:hidden"
           onClick={() => setOpen(false)}
           aria-hidden="true"
         />
