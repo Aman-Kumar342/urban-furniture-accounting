@@ -9,7 +9,7 @@ import { apiFetch, ApiRequestError } from "@/lib/api";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export function LoginForm() {
+export function LoginForm({ next: nextPath = "/" }: { next?: string }) {
   const router = useRouter();
   // "Login ID" is the account email (the backend authenticates by email).
   const [loginId, setLoginId] = useState("");
@@ -32,7 +32,7 @@ export function LoginForm() {
         method: "POST",
         body: JSON.stringify({ email: loginId.trim(), password }),
       });
-      router.replace("/");
+      router.replace(nextPath);
       router.refresh();
     } catch (err) {
       let message = "Can't reach the server. Check your connection and try again.";

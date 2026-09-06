@@ -4,8 +4,17 @@ import { login, loginStaff, USERS } from "./helpers";
 test.describe("Authentication", () => {
   test("unauthenticated visitor is sent to the login page", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login/); // may carry ?next=
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  });
+
+  test("a deep link, then login, returns the visitor to where they were headed", async ({ page }) => {
+    await page.goto("/sales-orders");
+    await expect(page).toHaveURL(/\/login\?next=/);
+    await page.getByLabel("Login ID").fill(USERS.accountant.email);
+    await page.getByLabel("Password").fill(USERS.accountant.password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/sales-orders$/);
   });
 
   test("wrong password shows a clear inline error and does not sign in", async ({ page }) => {
@@ -31,7 +40,7 @@ test.describe("Authentication", () => {
 
     // Session gone: revisiting a protected route bounces back to login.
     await page.goto("/");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("admin can sign in", async ({ page }) => {

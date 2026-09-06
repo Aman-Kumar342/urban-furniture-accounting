@@ -6,11 +6,17 @@ import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
 
+// Only allow returning to an internal path (never an off-site open redirect).
+function safeNext(next: string | undefined): string {
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+}
+
 // Structure per the Excalidraw Login page: App Logo → Login ID → Password → Sign in →
 // "Forgot Password · Sign Up". Rendered as a premium centered card on ruled drafting paper.
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const next = safeNext((await searchParams).next);
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect(next);
 
   return (
     <main
@@ -28,7 +34,7 @@ export default async function LoginPage() {
           <h1 className="mt-7 text-center font-display text-xl text-ink">Sign in</h1>
           <p className="mt-1 text-center text-sm text-muted">Welcome back to Urban Furniture.</p>
           <div className="mt-6">
-            <LoginForm />
+            <LoginForm next={next} />
           </div>
         </div>
 
