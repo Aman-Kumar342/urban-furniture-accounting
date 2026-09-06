@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
+import { ViewToggle } from "@/components/ui/ViewToggle";
+import { useView } from "@/lib/useView";
 import {
   CONTACT_TYPE_LABEL,
   CONTACT_TYPE_TONE,
@@ -21,6 +23,7 @@ export function ContactsList() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [view, setView] = useView("view.contacts");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,9 +67,12 @@ export function ContactsList() {
             aria-label="Search contacts"
           />
         </div>
-        <Link href="/contacts/new">
-          <Button>New contact</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={view} onChange={setView} />
+          <Link href="/contacts/new">
+            <Button>New contact</Button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -80,6 +86,8 @@ export function ContactsList() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState hasQuery={q.trim().length > 0} query={q.trim()} />
+      ) : view === "kanban" ? (
+        <KanbanGrid contacts={filtered} total={contacts?.length ?? 0} filtered={!!q.trim()} />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line bg-surface">
           <div className="overflow-x-auto">
@@ -134,6 +142,39 @@ export function ContactsList() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function KanbanGrid({ contacts, total, filtered }: { contacts: Contact[]; total: number; filtered: boolean }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {contacts.map((c) => (
+          <Link
+            key={c.id}
+            href={`/contacts/${c.id}`}
+            className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-pine/40 hover:bg-paper/40"
+          >
+            <div className="flex items-start gap-3">
+              <Avatar name={c.name} imageUrl={c.imageUrl} size="md" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-medium text-ink">{c.name}</p>
+                  <Badge tone={CONTACT_TYPE_TONE[c.type]}>{CONTACT_TYPE_LABEL[c.type]}</Badge>
+                </div>
+                <p className="mt-0.5 truncate text-sm text-muted">{c.email || "—"}</p>
+                <p className="tnum text-sm text-muted">{c.phone || "—"}</p>
+                {formatAddress(c) && <p className="mt-1 truncate text-xs text-muted">{formatAddress(c)}</p>}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+      <p className="text-xs text-muted">
+        {contacts.length} {contacts.length === 1 ? "contact" : "contacts"}
+        {filtered ? ` of ${total}` : ""}
+      </p>
     </div>
   );
 }

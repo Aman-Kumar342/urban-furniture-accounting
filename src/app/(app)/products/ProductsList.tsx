@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
+import { Avatar } from "@/components/ui/Avatar";
+import { ViewToggle } from "@/components/ui/ViewToggle";
+import { useView } from "@/lib/useView";
 import { formatMoney } from "@/lib/format";
 import {
   PRODUCT_TYPES,
@@ -24,6 +27,7 @@ export function ProductsList() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | ProductType>("ALL");
+  const [view, setView] = useView("view.products");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,9 +84,12 @@ export function ProductsList() {
             </Select>
           </div>
         </div>
-        <Link href="/products/new">
-          <Button>New product</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={view} onChange={setView} />
+          <Link href="/products/new">
+            <Button>New product</Button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -96,6 +103,8 @@ export function ProductsList() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState hasFilter={q.trim().length > 0 || typeFilter !== "ALL"} />
+      ) : view === "kanban" ? (
+        <ProductKanban products={filtered} total={products?.length ?? 0} filtered={filtered.length !== (products?.length ?? 0)} />
       ) : (
         <div className="overflow-hidden rounded-lg border border-line bg-surface">
           <div className="overflow-x-auto">
@@ -117,13 +126,16 @@ export function ProductsList() {
                     className="cursor-pointer border-b border-line last:border-0 transition-colors hover:bg-paper/60"
                   >
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/products/${p.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-medium text-ink hover:text-pine hover:underline"
-                      >
-                        {p.name}
-                      </Link>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={p.name} imageUrl={p.imageUrl} size="sm" shape="square" fallback="box" />
+                        <Link
+                          href={`/products/${p.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-ink hover:text-pine hover:underline"
+                        >
+                          {p.name}
+                        </Link>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-muted">
                       {p.category?.name || <span className="text-line">—</span>}
@@ -144,6 +156,41 @@ export function ProductsList() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ProductKanban({ products, total, filtered }: { products: Product[]; total: number; filtered: boolean }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {products.map((p) => (
+          <Link
+            key={p.id}
+            href={`/products/${p.id}`}
+            className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-pine/40 hover:bg-paper/40"
+          >
+            <div className="flex items-start gap-3">
+              <Avatar name={p.name} imageUrl={p.imageUrl} size="md" shape="square" fallback="box" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-medium text-ink">{p.name}</p>
+                  <Badge tone={PRODUCT_TYPE_TONE[p.type]}>{PRODUCT_TYPE_LABEL[p.type]}</Badge>
+                </div>
+                <p className="mt-0.5 truncate text-sm text-muted">{p.category?.name || "Uncategorised"}</p>
+                <div className="mt-2 flex items-baseline justify-between gap-3">
+                  <span className="tnum text-sm font-medium text-ink">{formatMoney(p.salesPrice)}</span>
+                  <span className="tnum text-xs text-muted">cost {formatMoney(p.cost)}</span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+      <p className="text-xs text-muted">
+        {products.length} {products.length === 1 ? "product" : "products"}
+        {filtered ? ` of ${total}` : ""}
+      </p>
     </div>
   );
 }

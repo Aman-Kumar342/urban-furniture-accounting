@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
-import { Avatar } from "@/components/ui/Avatar";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { CONTACT_TYPES, type Contact, type ContactType } from "@/lib/contacts";
 
@@ -23,6 +23,7 @@ type Values = {
   state: string;
   country: string;
   pincode: string;
+  imageUrl: string | null;
 };
 type Errors = Partial<Record<keyof Values, string>> & { form?: string };
 
@@ -37,6 +38,7 @@ function fromContact(c?: Contact): Values {
     state: c?.state ?? "",
     country: c?.country ?? "",
     pincode: c?.pincode ?? "",
+    imageUrl: c?.imageUrl ?? null,
   };
 }
 
@@ -85,11 +87,13 @@ export function ContactForm({ contact }: { contact?: Contact }) {
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    const payload: Record<string, string> = { name: values.name.trim(), type: values.type };
+    const payload: Record<string, string | null> = { name: values.name.trim(), type: values.type };
     for (const k of OPTIONAL_KEYS) {
       const v = values[k].trim();
       if (v) payload[k] = v;
     }
+    if (editing) payload.imageUrl = values.imageUrl; // string sets, null clears
+    else if (values.imageUrl) payload.imageUrl = values.imageUrl;
 
     setSaving(true);
     try {
@@ -139,13 +143,14 @@ export function ContactForm({ contact }: { contact?: Contact }) {
       )}
 
       <div className="space-y-6 rounded-lg border border-line bg-surface p-6">
-        <div className="flex items-center gap-3">
-          <Avatar name={values.name || "?"} imageUrl={contact?.imageUrl} size="lg" />
-          <div className="min-w-0">
-            <p className="font-display text-lg text-ink">{values.name.trim() || "New contact"}</p>
-            <p className="text-xs text-muted">Profile image is shown as initials.</p>
-          </div>
-        </div>
+        <ImageUpload
+          name={values.name || "?"}
+          value={values.imageUrl}
+          onChange={(v) => {
+            setValues((prev) => ({ ...prev, imageUrl: v }));
+            setSaved(false);
+          }}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">

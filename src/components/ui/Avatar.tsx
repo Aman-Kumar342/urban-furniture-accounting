@@ -1,5 +1,5 @@
-// Contact avatar. Renders a real image if one is present (the model has imageUrl, though the
-// current write API can't set it), otherwise a calm initials monogram — no fabricated image.
+// Avatar / thumbnail. Renders a real image if one is present (models carry imageUrl), otherwise a
+// calm fallback — a name monogram for people, or a box glyph for products. No fabricated image.
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -8,26 +8,38 @@ function initials(name: string): string {
 }
 
 const SIZES = { sm: "h-9 w-9 text-xs", md: "h-11 w-11 text-sm", lg: "h-16 w-16 text-lg" };
+const SHAPES = { circle: "rounded-full", square: "rounded-md" };
 
 export function Avatar({
   name,
   imageUrl,
   size = "sm",
+  shape = "circle",
+  fallback = "initials",
 }: {
   name: string;
   imageUrl?: string | null;
   size?: keyof typeof SIZES;
+  shape?: keyof typeof SHAPES;
+  fallback?: "initials" | "box";
 }) {
+  const shapeClass = SHAPES[shape];
   if (imageUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={imageUrl} alt="" className={`${SIZES[size]} shrink-0 rounded-full object-cover`} />;
+    return <img src={imageUrl} alt="" className={`${SIZES[size]} ${shapeClass} shrink-0 bg-line/40 object-cover`} />;
   }
   return (
     <span
       aria-hidden="true"
-      className={`${SIZES[size]} inline-flex shrink-0 items-center justify-center rounded-full bg-pine/8 font-medium text-pine`}
+      className={`${SIZES[size]} ${shapeClass} inline-flex shrink-0 items-center justify-center bg-pine/8 font-medium text-pine`}
     >
-      {initials(name)}
+      {fallback === "box" ? (
+        <svg width="45%" height="45%" viewBox="0 0 24 24" fill="none">
+          <path d="M3 7l9-4 9 4v10l-9 4-9-4V7z M3 7l9 4 9-4 M12 11v10" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        initials(name)
+      )}
     </span>
   );
 }

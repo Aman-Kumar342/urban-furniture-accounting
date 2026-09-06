@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { ContactType, ProductType } from "@prisma/client";
 
+// A profile/product image, stored inline as a small data: URL. The client downscales the file
+// to a thumbnail before upload, so this stays well within the cap. Only data:image/ is accepted
+// (it renders safely in <img src>); the imageUrl column already exists, so there is no migration.
+const imageUrlField = z.string().trim().max(1_400_000).startsWith("data:image/", "Image must be an uploaded file.");
+
 export const createContactSchema = z.object({
   name: z.string().trim().min(1).max(200),
   type: z.nativeEnum(ContactType).default(ContactType.CUSTOMER),
@@ -11,6 +16,7 @@ export const createContactSchema = z.object({
   state: z.string().trim().max(100).optional(),
   country: z.string().trim().max(100).optional(),
   pincode: z.string().trim().max(20).optional(),
+  imageUrl: imageUrlField.optional(),
 });
 
 export const createProductSchema = z.object({
@@ -20,6 +26,7 @@ export const createProductSchema = z.object({
   categoryName: z.string().trim().min(1).max(120).optional(),
   salesPrice: z.number().nonnegative().default(0),
   cost: z.number().nonnegative().default(0),
+  imageUrl: imageUrlField.optional(),
 });
 
 export const salesOrderLineSchema = z.object({
@@ -68,6 +75,7 @@ export const updateContactSchema = z
     state: z.string().trim().max(100).optional(),
     country: z.string().trim().max(100).optional(),
     pincode: z.string().trim().max(20).optional(),
+    imageUrl: imageUrlField.nullable().optional(), // null clears it
   })
   .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
 
@@ -79,6 +87,7 @@ export const updateProductSchema = z
     categoryName: z.string().trim().min(1).max(120).optional(),
     salesPrice: z.number().nonnegative().optional(),
     cost: z.number().nonnegative().optional(),
+    imageUrl: imageUrlField.nullable().optional(), // null clears it
   })
   .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
 

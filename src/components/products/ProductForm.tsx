@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { PRODUCT_TYPES, type Product, type ProductType } from "@/lib/products";
 
-type Values = { name: string; type: ProductType; category: string; salesPrice: string; cost: string };
+type Values = { name: string; type: ProductType; category: string; salesPrice: string; cost: string; imageUrl: string | null };
 type Errors = Partial<Record<keyof Values, string>> & { form?: string };
 
 function fromProduct(p?: Product): Values {
@@ -19,6 +20,7 @@ function fromProduct(p?: Product): Values {
     category: p?.category?.name ?? "",
     salesPrice: p?.salesPrice ?? "",
     cost: p?.cost ?? "",
+    imageUrl: p?.imageUrl ?? null,
   };
 }
 
@@ -102,6 +104,8 @@ export function ProductForm({ product }: { product?: Product }) {
       cost,
     };
     if (values.category.trim()) payload.categoryName = values.category.trim();
+    if (editing) payload.imageUrl = values.imageUrl; // string sets, null clears
+    else if (values.imageUrl) payload.imageUrl = values.imageUrl;
 
     setSaving(true);
     try {
@@ -151,6 +155,16 @@ export function ProductForm({ product }: { product?: Product }) {
       )}
 
       <div className="space-y-5 rounded-lg border border-line bg-surface p-6">
+        <ImageUpload
+          name={values.name || "?"}
+          value={values.imageUrl}
+          shape="square"
+          fallback="box"
+          onChange={(v) => {
+            setValues((prev) => ({ ...prev, imageUrl: v }));
+            setSaved(false);
+          }}
+        />
         <FormField label="Product name" htmlFor="name" error={errors.name}>
           <Input id="name" autoFocus value={values.name} onChange={set("name")} invalid={!!errors.name} />
         </FormField>

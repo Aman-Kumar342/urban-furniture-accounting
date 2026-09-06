@@ -24,6 +24,7 @@ export async function createProduct(input: CreateProductInput) {
       categoryId,
       salesPrice: round2(input.salesPrice),
       cost: round2(input.cost),
+      imageUrl: input.imageUrl ?? null,
     },
   });
 }
@@ -68,6 +69,7 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
       categoryId,
       salesPrice: input.salesPrice !== undefined ? round2(input.salesPrice) : undefined,
       cost: input.cost !== undefined ? round2(input.cost) : undefined,
+      imageUrl: input.imageUrl, // undefined = no change, null = clear, string = set
     },
     include: { category: true },
   });

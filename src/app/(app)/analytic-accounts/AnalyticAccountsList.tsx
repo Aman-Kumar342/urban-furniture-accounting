@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
+import { ViewToggle } from "@/components/ui/ViewToggle";
+import { useView } from "@/lib/useView";
 import {
   ANALYTIC_TYPES,
   ANALYTIC_TYPE_LABEL,
@@ -23,6 +25,7 @@ export function AnalyticAccountsList() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | AnalyticType>("ALL");
+  const [view, setView] = useView("view.analytics");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,9 +82,12 @@ export function AnalyticAccountsList() {
             </Select>
           </div>
         </div>
-        <Link href="/analytic-accounts/new">
-          <Button>New analytic account</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ViewToggle value={view} onChange={setView} />
+          <Link href="/analytic-accounts/new">
+            <Button>New analytic account</Button>
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -95,6 +101,19 @@ export function AnalyticAccountsList() {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState isFiltered={q.trim().length > 0 || typeFilter !== "ALL"} />
+      ) : view === "kanban" ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((a) => (
+            <Link
+              key={a.id}
+              href={`/analytic-accounts/${a.id}`}
+              className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-pine/40 hover:bg-paper/40"
+            >
+              <span className="truncate font-medium text-ink">{a.name}</span>
+              <Badge tone={ANALYTIC_TYPE_TONE[a.type]}>{ANALYTIC_TYPE_LABEL[a.type]}</Badge>
+            </Link>
+          ))}
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-line bg-surface">
           <div className="overflow-x-auto">
