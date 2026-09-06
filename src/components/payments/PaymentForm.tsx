@@ -29,6 +29,8 @@ export function PaymentForm({
   const receive = kind === "invoice";
   const [method, setMethod] = useState<"BANK" | "CASH">("BANK");
   const [amount, setAmount] = useState(() => amountDue);
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,6 +58,8 @@ export function PaymentForm({
           [receive ? "invoiceId" : "billId"]: targetId,
           method,
           amount: Number(amount),
+          paymentDate,
+          ...(note.trim() ? { note: note.trim() } : {}),
         }),
       });
       onDone();
@@ -116,6 +120,15 @@ export function PaymentForm({
             invalid={!!amountError}
             autoFocus
           />
+        </FormField>
+        <FormField label="Date" htmlFor="pf-date">
+          <Input id="pf-date" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+        </FormField>
+      </div>
+
+      <div className="mt-4">
+        <FormField label="Note" htmlFor="pf-note">
+          <Input id="pf-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional reference or memo" />
         </FormField>
       </div>
 

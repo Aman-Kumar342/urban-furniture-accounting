@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiRequestError } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { PaymentForm } from "@/components/payments/PaymentForm";
 import { formatMoney } from "@/lib/format";
 import { formatEntryDate, parseCents } from "@/lib/journalEntries";
 import { DOC_STATE_LABEL, DOC_STATE_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from "@/lib/invoices";
-import type { BillDetail as Bill } from "@/lib/bills";
+import { paidByMethod, type BillDetail as Bill } from "@/lib/bills";
 import type { Contact } from "@/lib/contacts";
 import type { Product } from "@/lib/products";
 import type { Account } from "@/lib/accounts";
@@ -98,6 +99,7 @@ export function BillDetail({ id }: { id: string }) {
   const vendorName = names.contact.get(bill.vendorId) ?? "—";
   const isDraft = bill.state === "DRAFT";
   const canPay = bill.state === "CONFIRMED" && dueCents > 0;
+  const paid = paidByMethod(bill.allocations);
 
   return (
     <div className="space-y-5">
@@ -108,6 +110,14 @@ export function BillDetail({ id }: { id: string }) {
           {!isDraft && <Badge tone={PAYMENT_STATUS_TONE[bill.paymentStatus]}>{PAYMENT_STATUS_LABEL[bill.paymentStatus]}</Badge>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {bill.purchaseOrderId && (
+            <Link href={`/purchase-orders/${bill.purchaseOrderId}`}>
+              <Button variant="ghost" title="Open the purchase order this bill was created from">PO</Button>
+            </Link>
+          )}
+          <Link href="/reports/budget">
+            <Button variant="ghost" title="Open the budget report">Budget</Button>
+          </Link>
           {isDraft &&
             (pendingConfirm ? (
               <div className="flex items-center gap-2">
@@ -126,9 +136,15 @@ export function BillDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {isDraft && (
+      {isDraft ? (
         <p className="text-sm text-muted">
           Confirming posts a balanced journal entry (Dr Purchase Expense / Cr Creditors) and locks the bill.
+        </p>
+      ) : (
+        <p className="text-xs text-muted">
+          Status is derived: <strong className="font-medium">Paid</strong> when amount due is 0,{" "}
+          <strong className="font-medium">Partial</strong> when it&rsquo;s below the bill total,{" "}
+          <strong className="font-medium">Not paid</strong> when it equals the total.
         </p>
       )}
       {warnings.length > 0 && (
@@ -160,6 +176,7 @@ export function BillDetail({ id }: { id: string }) {
 
       <dl className="grid gap-4 rounded-lg border border-line bg-surface p-6 sm:grid-cols-4">
         <Field label="Vendor" value={vendorName} />
+        <ReferenceEditor bill={bill} onSaved={(ref) => setBill((b) => (b ? { ...b, reference: ref } : b))} />
         <Field label="Bill date" value={formatEntryDate(bill.billDate)} />
         <Field label="Due date" value={bill.dueDate ? formatEntryDate(bill.dueDate) : "—"} />
         <Field label="Amount due" value={formatMoney(bill.amountDue)} mono />
@@ -197,7 +214,11 @@ export function BillDetail({ id }: { id: string }) {
         <div className="flex justify-end border-t border-line bg-paper/40 px-4 py-4">
           <dl className="w-full max-w-xs space-y-1.5 text-sm">
             <Row label="Total" value={formatMoney(bill.amountTotal)} />
-            <Row label="Amount paid" value={formatMoney(bill.amountPaid)} />
+            {paid.cash > 0 && <Row label="Paid via Cash" value={formatMoney(paid.cash.toFixed(2))} />}
+            {paid.bank > 0 && <Row label="Paid via Bank" value={formatMoney(paid.bank.toFixed(2))} />}
+            {paid.cash === 0 && paid.bank === 0 && (parseCents(bill.amountPaid) ?? 0) > 0 && (
+              <Row label="Amount paid" value={formatMoney(bill.amountPaid)} />
+            )}
             <div className="border-t border-line pt-1.5">
               <Row label="Amount due" value={formatMoney(bill.amountDue)} strong />
             </div>
@@ -223,6 +244,47 @@ export function BillDetail({ id }: { id: string }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function ReferenceEditor({ bill, onSaved }: { bill: Bill; onSaved: (ref: string | null) => void }) {
+  const [val, setVal] = useState(bill.reference ?? "");
+  const [saving, setSaving] = useState(false);
+  const [savedRef, setSavedRef] = useState(false);
+  const [err, setErr] = useState(false);
+
+  if (bill.state !== "DRAFT") {
+    return <Field label="Bill reference" value={bill.reference || "—"} />;
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr(false);
+    try {
+      const res = await apiFetch<{ bill: { reference: string | null } }>(`/api/bills/${bill.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ reference: val.trim() || null }),
+      });
+      onSaved(res.bill.reference);
+      setSavedRef(true);
+      setTimeout(() => setSavedRef(false), 1500);
+    } catch {
+      setErr(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium text-muted">Bill reference</dt>
+      <dd className="mt-1 flex items-center gap-2">
+        <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. ABC-26-001" className="h-9" invalid={err} />
+        <Button type="button" variant="ghost" onClick={save} loading={saving} className="h-9 shrink-0 px-3 text-sm">
+          {savedRef ? "Saved" : "Save"}
+        </Button>
+      </dd>
     </div>
   );
 }

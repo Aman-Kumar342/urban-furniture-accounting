@@ -14,3 +14,13 @@ export const createPurchaseOrderSchema = z.object({
 });
 
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
+
+// Editable header fields on a DRAFT vendor bill (the vendor's own reference + due date).
+export const updateBillSchema = z
+  .object({
+    reference: z.string().trim().max(60).nullable().optional(),
+    dueDate: z.coerce.date().nullable().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: "No fields to update." });
+
+export type UpdateBillInput = z.infer<typeof updateBillSchema>;

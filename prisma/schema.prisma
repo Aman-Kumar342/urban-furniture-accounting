@@ -408,6 +408,7 @@ model PurchaseOrderLine {
 model VendorBill {
   id              String         @id @default(uuid())
   number          String         @unique // e.g. Bill/2026/0001
+  reference       String? // vendor's own bill reference (free text), e.g. ABC-26-001
   vendorId        String
   vendor          Contact        @relation(fields: [vendorId], references: [id])
   purchaseOrderId String?        @unique

@@ -4,6 +4,7 @@ import { money, round2 } from "@/lib/money";
 import { NotFound, Conflict, Unprocessable } from "@/lib/errors";
 import { postEntry } from "./posting.service";
 import { checkBudgetWarnings } from "./budget.service";
+import type { UpdateBillInput } from "@/server/validation/purchase";
 
 export function listBills(user: User) {
   // Contact-portal users (a vendor) see only their own bills (server-side ownership).
@@ -14,13 +15,34 @@ export function listBills(user: User) {
 export async function getBillForUser(id: string, user: User) {
   const bill = await prisma.vendorBill.findUnique({
     where: { id },
-    include: { lines: true, journalEntry: { include: { items: true } }, allocations: true },
+    include: {
+      lines: true,
+      journalEntry: { include: { items: true } },
+      // Include each settlement's payment method so the UI can split Paid via Cash / Bank.
+      allocations: { include: { payment: { include: { journal: { select: { type: true } } } } } },
+    },
   });
   if (!bill) throw NotFound("Bill not found.");
   if (user.role === "CONTACT" && bill.vendorId !== user.contactId) {
     throw NotFound("Bill not found.");
   }
   return bill;
+}
+
+// Edit a DRAFT bill's header (vendor reference / due date). Locked once confirmed.
+export async function updateBill(id: string, input: UpdateBillInput) {
+  const bill = await prisma.vendorBill.findUnique({ where: { id } });
+  if (!bill) throw NotFound("Bill not found.");
+  if (bill.state !== "DRAFT") throw Conflict("Only a draft bill can be edited.");
+  return prisma.vendorBill.update({
+    where: { id },
+    data: { reference: input.reference, dueDate: input.dueDate },
+    include: {
+      lines: true,
+      journalEntry: { include: { items: true } },
+      allocations: { include: { payment: { include: { journal: { select: { type: true } } } } } },
+    },
+  });
 }
 
 // Confirm a draft bill: posts the balanced journal entry (Dr Purchase Expense / Cr Creditors)
