@@ -1,11 +1,18 @@
 # Urban Furniture — Accounting System
 
+[![CI](https://github.com/Aman-Kumar342/urban-furniture-accounting/actions/workflows/ci.yml/badge.svg)](https://github.com/Aman-Kumar342/urban-furniture-accounting/actions/workflows/ci.yml)
+
 A double-entry accounting system that turns master data into recorded transactions and
 real-time financial reports. Built for the Odoo Hackathon, with a **clean, normalized data
 model and provably correct accounting** as the first priority: every transaction posts
 balanced journal entries, and the **Balance Sheet always balances** (Assets = Liabilities + Capital).
 
 **Live demo:** https://urbanfurniture.69.62.76.226.sslip.io
+
+**Don't take our word for it** — the accounting is verifiable: `npm run verify:demo` reconciles the
+whole dataset (every posted entry balances, trial balance ties, Balance Sheet balances, budgets
+reconcile), and the DB triggers in `db/constraints.sql` make PostgreSQL itself reject an unbalanced
+or mutated posted entry. CI runs the 104 backend tests + 23 E2E on every push.
 
 ---
 
@@ -147,7 +154,7 @@ independent recompute, the Balance Sheet balances, and portal isolation holds.
 |---|---|
 | `npm test` | **104 unit + integration tests** (vitest) against a real Postgres database |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test:e2e` | **19 end-to-end tests** (Playwright) against a production build |
+| `npm run test:e2e` | **23 end-to-end tests** (Playwright) against a production build |
 | `npm run verify:demo` | reconciles the demo dataset's accounting (balances, statuses, reports) |
 
 The E2E suite (`e2e/`) drives the real browser through:

@@ -25,8 +25,9 @@ async function resolveLineData(
 
 async function assertResponsibleExists(id?: string | null) {
   if (id) {
-    const u = await prisma.user.findUnique({ where: { id } });
-    if (!u) throw NotFound("Responsible user not found.");
+    // Responsible is a Contact (per the mockup), not an app user.
+    const c = await prisma.contact.findUnique({ where: { id } });
+    if (!c) throw NotFound("Responsible contact not found.");
   }
 }
 

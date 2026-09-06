@@ -24,7 +24,8 @@ export function BudgetForm({ budget }: { budget?: BudgetDetail }) {
   const router = useRouter();
   const editing = !!budget;
   const [analytics, setAnalytics] = useState<AnalyticAccount[] | null>(null);
-  const [me, setMe] = useState<{ id: string; name: string } | null>(null);
+  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
+  const [responsibleId, setResponsibleId] = useState(budget?.responsibleId ?? "");
   const [loadError, setLoadError] = useState(false);
 
   const [name, setName] = useState(budget?.name ?? "");
@@ -41,12 +42,12 @@ export function BudgetForm({ budget }: { budget?: BudgetDetail }) {
   async function loadRefs() {
     setLoadError(false);
     try {
-      const [a, meRes] = await Promise.all([
+      const [a, c] = await Promise.all([
         apiFetch<{ analyticAccounts: AnalyticAccount[] }>("/api/analytic-accounts"),
-        apiFetch<{ user: { id: string; name: string } }>("/api/auth/me"),
+        apiFetch<{ contacts: { id: string; name: string }[] }>("/api/contacts"),
       ]);
       setAnalytics(a.analyticAccounts);
-      setMe(meRes.user);
+      setContacts(c.contacts);
     } catch {
       setLoadError(true);
     }
@@ -83,13 +84,13 @@ export function BudgetForm({ budget }: { budget?: BudgetDetail }) {
       if (editing) {
         await apiFetch(`/api/budgets/${budget!.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ name: name.trim(), periodStart, periodEnd, lines: linePayload }),
+          body: JSON.stringify({ name: name.trim(), periodStart, periodEnd, responsibleId: responsibleId || null, lines: linePayload }),
         });
         router.push(`/budgets/${budget!.id}`);
       } else {
         const res = await apiFetch<{ budget: { id: string } }>("/api/budgets", {
           method: "POST",
-          body: JSON.stringify({ name: name.trim(), periodStart, periodEnd, responsibleId: me?.id, lines: linePayload }),
+          body: JSON.stringify({ name: name.trim(), periodStart, periodEnd, responsibleId: responsibleId || undefined, lines: linePayload }),
         });
         router.push(`/budgets/${res.budget.id}`);
       }
@@ -141,12 +142,18 @@ export function BudgetForm({ budget }: { budget?: BudgetDetail }) {
         <FormField label="Period end" htmlFor="pe" error={submitted && periodEnd < periodStart ? "On or after the start date." : undefined}>
           <Input id="pe" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} invalid={submitted && periodEnd < periodStart} />
         </FormField>
-        {!editing && me && (
-          <div className="sm:col-span-2">
-            <p className="text-xs font-medium text-muted">Responsible</p>
-            <p className="mt-0.5 text-sm text-ink">{me.name} <span className="text-muted">(you)</span></p>
-          </div>
-        )}
+        <div className="sm:col-span-2">
+          <FormField label="Responsible" htmlFor="responsible" hint="A contact accountable for this budget.">
+            <Select id="responsible" value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)}>
+              <option value="">— None —</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-line bg-surface">

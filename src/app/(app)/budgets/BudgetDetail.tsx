@@ -19,7 +19,7 @@ export function BudgetDetail({ id }: { id: string }) {
   const router = useRouter();
   const [budget, setBudget] = useState<Budget | null>(null);
   const [report, setReport] = useState<BudgetReport | null>(null);
-  const [me, setMe] = useState<{ id: string; name: string } | null>(null);
+  const [contacts, setContacts] = useState<Map<string, string>>(new Map());
   const [status, setStatus] = useState<"loading" | "error" | "notfound" | "ready">("loading");
   const [pending, setPending] = useState<"confirm" | "revise" | "cancel" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,14 +28,14 @@ export function BudgetDetail({ id }: { id: string }) {
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const [b, r, meRes] = await Promise.all([
+      const [b, r, cRes] = await Promise.all([
         apiFetch<{ budget: Budget }>(`/api/budgets/${id}`),
         apiFetch<BudgetReport>(`/api/budgets/${id}/report`),
-        apiFetch<{ user: { id: string; name: string } }>("/api/auth/me").catch(() => ({ user: null })),
+        apiFetch<{ contacts: { id: string; name: string }[] }>("/api/contacts").catch(() => ({ contacts: [] })),
       ]);
       setBudget(b.budget);
       setReport(r);
-      setMe(meRes.user);
+      setContacts(new Map(cRes.contacts.map((c) => [c.id, c.name])));
       setStatus("ready");
     } catch (e) {
       setStatus(e instanceof ApiRequestError && e.code === "NOT_FOUND" ? "notfound" : "error");
@@ -83,7 +83,7 @@ export function BudgetDetail({ id }: { id: string }) {
     );
   }
 
-  const responsible = me && budget.responsibleId === me.id ? `${me.name} (you)` : "—";
+  const responsible = budget.responsibleId ? contacts.get(budget.responsibleId) ?? "—" : "—";
   const amountToAchieve = diff(report.totalCommitted, report.totalAchieved);
 
   return (

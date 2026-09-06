@@ -195,7 +195,7 @@ async function seedMasterData() {
 
 // ----------------------------------------------------------------------------- budgets
 async function seedBudgets(
-  adminId: string,
+  responsibleId: string, // a Contact id — Responsible is a contact per the mockup
   income: Map<string, AnalyticAccount>,
   expense: Map<string, AnalyticAccount>,
 ) {
@@ -209,7 +209,7 @@ async function seedBudgets(
     confirm: boolean,
   ) {
     let b = await prisma.budget.findFirst({ where: { name } });
-    if (!b) b = await createBudget({ name, periodStart, periodEnd, responsibleId: adminId, lines });
+    if (!b) b = await createBudget({ name, periodStart, periodEnd, responsibleId, lines });
     if (confirm && b.state === "DRAFT") await confirmBudget(b.id);
     return prisma.budget.findUniqueOrThrow({ where: { id: b.id } });
   }
@@ -464,7 +464,7 @@ async function main() {
   console.log("Seeding demo dataset (FY2026)…");
 
   const { customers, vendors, products, productCategory, analyticIncome, analyticExpense } = await seedMasterData();
-  await seedBudgets(adminId, analyticIncome, analyticExpense);
+  await seedBudgets(customers[0].id, analyticIncome, analyticExpense);
   await seedSales(adminId, customers, products, productCategory, analyticIncome);
   await seedPurchases(adminId, vendors, products, analyticExpense);
   await seedManualEntries(adminId);
